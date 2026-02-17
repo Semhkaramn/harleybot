@@ -2,6 +2,7 @@ import re
 from aiogram import Router, Bot, F
 from aiogram.types import Message
 from aiogram.filters import Command
+from aiogram.enums import ParseMode
 
 from bot.database.filters import (
     add_filter, get_filter, get_all_filters,
@@ -228,7 +229,13 @@ async def filter_command(message: Message, bot: Bot):
             "**Butonlu yanit:**\n"
             "`/filter site Mesaj [Buton](https://link.com)`\n\n"
             "**Yan yana buton (:same):**\n"
-            "`[Buton1](https://link1.com) [Buton2](https://link2.com:same)`"
+            "`[Buton1](https://link1.com) [Buton2](https://link2.com:same)`\n\n"
+            "**Degiskenler:**\n"
+            "`{mention}` - Kullaniciyi etiketler\n"
+            "`{first}` - Ad\n"
+            "`{username}` - Kullanici adi\n"
+            "`{id}` - Kullanici ID\n"
+            "`{chatname}` - Grup adi"
         )
         return
 
@@ -399,28 +406,16 @@ async def stop_all_filters(message: Message, bot: Bot):
     await message.reply(f"**{count}** filter silindi{group_info}.")
 
 
-# Filter checker - responds to messages matching filters
-# Only process non-command text messages
-@router.message(F.chat.type.in_(["group", "supergroup"]), F.text, ~F.text.startswith("/"))
-async def check_filter_message(message: Message, bot: Bot):
-    if not message.text:
-        return
-
-    chat_id = message.chat.id
-
-    # Check if allowed group
-    if not is_allowed_group(chat_id):
-        return
-
-    text = message.text
+# Helper function to send filter response
+async def send_filter_response(message: Message, bot: Bot, filter_data: dict, chat_id: int):
+    """Send filter response with proper formatting"""
     user = message.from_user
-    chat = message.chat
 
-    # Check for matching filter
-    filter_data = await check_filters(chat_id, text)
-
-    if not filter_data:
-        return
+    # Get chat info for fillings
+    try:
+        chat = await bot.get_chat(chat_id)
+    except:
+        chat = message.chat
 
     response = filter_data.get('response')
     media_type = filter_data.get('media_type')
@@ -454,37 +449,111 @@ async def check_filter_message(message: Message, bot: Bot):
                 await message.reply_photo(
                     file_id,
                     caption=caption or response,
-                    reply_markup=keyboard
+                    reply_markup=keyboard,
+                    parse_mode=ParseMode.MARKDOWN
                 )
             elif media_type == 'animation':
                 await message.reply_animation(
                     file_id,
                     caption=caption or response,
-                    reply_markup=keyboard
+                    reply_markup=keyboard,
+                    parse_mode=ParseMode.MARKDOWN
                 )
             elif media_type == 'video':
                 await message.reply_video(
                     file_id,
                     caption=caption or response,
-                    reply_markup=keyboard
+                    reply_markup=keyboard,
+                    parse_mode=ParseMode.MARKDOWN
                 )
             elif media_type == 'document':
                 await message.reply_document(
                     file_id,
                     caption=caption or response,
-                    reply_markup=keyboard
+                    reply_markup=keyboard,
+                    parse_mode=ParseMode.MARKDOWN
                 )
             elif media_type == 'audio':
                 await message.reply_audio(
                     file_id,
                     caption=caption or response,
-                    reply_markup=keyboard
+                    reply_markup=keyboard,
+                    parse_mode=ParseMode.MARKDOWN
                 )
             elif media_type == 'voice':
                 await message.reply_voice(file_id, reply_markup=keyboard)
             elif media_type == 'video_note':
                 await message.reply_video_note(file_id)
         elif response:
-            await message.reply(response, reply_markup=keyboard)
-    except Exception:
-        pass  # Filter response failed silently
+            await message.reply(response, reply_markup=keyboard, parse_mode=ParseMode.MARKDOWN)
+    except Exception as e:
+        # If Markdown parsing fails, try without parse_mode
+        try:
+            if media_type and file_id:
+                if media_type == 'photo':
+                    await message.reply_photo(file_id, caption=caption or response, reply_markup=keyboard)
+                elif media_type == 'video':
+                    await message.reply_video(file_id, caption=caption or response, reply_markup=keyboard)
+                elif media_type == 'animation':
+                    await message.reply_animation(file_id, caption=caption or response, reply_markup=keyboard)
+                elif media_type == 'document':
+                    await message.reply_document(file_id, caption=caption or response, reply_markup=keyboard)
+                elif media_type == 'audio':
+                    await message.reply_audio(file_id, caption=caption or response, reply_markup=keyboard)
+            elif response:
+                await message.reply(response, reply_markup=keyboard)
+        except:
+            pass  # Filter response failed silently
+
+
+# Filter checker for GROUP messages - responds to messages matching filters
+@router.message(F.chat.type.in_(["group", "supergroup"]), F.text, ~F.text.startswith("/"))
+async def check_filter_message(message: Message, bot: Bot):
+    if not message.text:
+        return
+
+    chat_id = message.chat.id
+
+    # Check if allowed group
+    if not is_allowed_group(chat_id):
+        return
+
+    text = message.text
+
+    # Check for matching filter
+    filter_data = await check_filters(chat_id, text)
+
+    if not filter_data:
+        return
+
+    await send_filter_response(message, bot, filter_data, chat_id)
+
+
+# Filter checker for PRIVATE messages - when user is connected to a group
+@router.message(F.chat.type == "private", F.text, ~F.text.startswith("/"))
+async def check_filter_message_private(message: Message, bot: Bot):
+    if not message.text or not message.from_user:
+        return
+
+    user_id = message.from_user.id
+
+    # Check if user is connected to a group
+    connection = await get_user_connected_chat(user_id)
+    if not connection:
+        return  # Not connected to any group, ignore
+
+    chat_id = connection['chat_id']
+
+    # Check if allowed group
+    if not is_allowed_group(chat_id):
+        return
+
+    text = message.text
+
+    # Check for matching filter in the connected group
+    filter_data = await check_filters(chat_id, text)
+
+    if not filter_data:
+        return
+
+    await send_filter_response(message, bot, filter_data, chat_id)
