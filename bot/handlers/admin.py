@@ -313,9 +313,9 @@ async def unmute_user(message: Message, bot: Bot):
     except Exception as e:
         await message.reply(f"Hata: {str(e)}")
 
-# ==================== LOCK/UNLOCK COMMANDS ====================
+# ==================== CHAT KAPAT/AÇ COMMANDS ====================
 
-@router.message(Command("lock"))
+@router.message(F.text.lower() == "chat kapat")
 async def lock_chat(message: Message, bot: Bot):
     if message.chat.type == "private":
         return
@@ -358,11 +358,11 @@ async def lock_chat(message: Message, bot: Bot):
             )
         )
         await set_chat_locked(chat_id, True)
-        await message.reply("**Grup kilitlendi!**")
+        await message.reply("**Chat kapatıldı!**")
     except TelegramBadRequest as e:
         await message.reply(f"Hata: {e.message}")
 
-@router.message(Command("unlock"))
+@router.message(F.text.lower() == "chat aç")
 async def unlock_chat(message: Message, bot: Bot):
     if message.chat.type == "private":
         return
@@ -400,7 +400,7 @@ async def unlock_chat(message: Message, bot: Bot):
             )
             # Clear saved permissions
             await clear_previous_permissions(chat_id)
-            await message.reply("**Grup kilidi açıldı!**")
+            await message.reply("**Chat açıldı!**")
         else:
             # No saved permissions, restore all to default
             await bot.set_chat_permissions(
@@ -419,7 +419,7 @@ async def unlock_chat(message: Message, bot: Bot):
                     can_invite_users=True  # Always keep invite permission open
                 )
             )
-            await message.reply("**Grup kilidi açıldı!**")
+            await message.reply("**Chat açıldı!**")
 
         await set_chat_locked(chat_id, False)
     except Exception as e:
