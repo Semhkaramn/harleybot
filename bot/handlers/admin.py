@@ -6,7 +6,10 @@ from aiogram.types import Message, ChatPermissions
 from aiogram.filters import Command
 from aiogram.exceptions import TelegramBadRequest
 
-from bot.database.settings import set_chat_locked
+from bot.database.settings import (
+    set_chat_locked, save_previous_permissions,
+    get_previous_permissions, clear_previous_permissions
+)
 from bot.utils.helpers import is_admin, can_restrict, get_target_user, get_user_link, extract_time, can_delete
 from bot.config import ALLOWED_GROUP_ID
 
@@ -323,12 +326,39 @@ async def lock_chat(message: Message, bot: Bot):
     chat_id = message.chat.id
 
     try:
+        # Get current chat permissions before locking
+        chat = await bot.get_chat(chat_id)
+        current_perms = chat.permissions
+
+        if current_perms:
+            # Save current permissions to restore later
+            perms_to_save = {
+                'can_send_messages': current_perms.can_send_messages,
+                'can_send_audios': current_perms.can_send_audios,
+                'can_send_documents': current_perms.can_send_documents,
+                'can_send_photos': current_perms.can_send_photos,
+                'can_send_videos': current_perms.can_send_videos,
+                'can_send_video_notes': current_perms.can_send_video_notes,
+                'can_send_voice_notes': current_perms.can_send_voice_notes,
+                'can_send_polls': current_perms.can_send_polls,
+                'can_send_other_messages': current_perms.can_send_other_messages,
+                'can_add_web_page_previews': current_perms.can_add_web_page_previews,
+                'can_change_info': current_perms.can_change_info,
+                'can_pin_messages': current_perms.can_pin_messages,
+                'can_manage_topics': current_perms.can_manage_topics,
+            }
+            await save_previous_permissions(chat_id, perms_to_save)
+
+        # Lock chat but ALWAYS keep can_invite_users True
         await bot.set_chat_permissions(
             chat_id,
-            permissions=ChatPermissions(can_send_messages=False)
+            permissions=ChatPermissions(
+                can_send_messages=False,
+                can_invite_users=True  # Always keep invite permission open
+            )
         )
         await set_chat_locked(chat_id, True)
-        await message.reply("**Grup kilitlendi!** Sadece adminler mesaj yazabilir.")
+        await message.reply("**Grup kilitlendi!** Sadece adminler mesaj yazabilir.\n_(Uye ekleme izni acik kaldi)_")
     except TelegramBadRequest as e:
         await message.reply(f"Hata: {e.message}")
 
@@ -343,24 +373,55 @@ async def unlock_chat(message: Message, bot: Bot):
     chat_id = message.chat.id
 
     try:
-        await bot.set_chat_permissions(
-            chat_id,
-            permissions=ChatPermissions(
-                can_send_messages=True,
-                can_send_audios=True,
-                can_send_documents=True,
-                can_send_photos=True,
-                can_send_videos=True,
-                can_send_video_notes=True,
-                can_send_voice_notes=True,
-                can_send_polls=True,
-                can_send_other_messages=True,
-                can_add_web_page_previews=True,
-                can_invite_users=True
+        # Get saved previous permissions
+        saved_perms = await get_previous_permissions(chat_id)
+
+        if saved_perms:
+            # Restore only the permissions that were open before lock
+            # Always keep can_invite_users True
+            await bot.set_chat_permissions(
+                chat_id,
+                permissions=ChatPermissions(
+                    can_send_messages=saved_perms.get('can_send_messages', True),
+                    can_send_audios=saved_perms.get('can_send_audios', True),
+                    can_send_documents=saved_perms.get('can_send_documents', True),
+                    can_send_photos=saved_perms.get('can_send_photos', True),
+                    can_send_videos=saved_perms.get('can_send_videos', True),
+                    can_send_video_notes=saved_perms.get('can_send_video_notes', True),
+                    can_send_voice_notes=saved_perms.get('can_send_voice_notes', True),
+                    can_send_polls=saved_perms.get('can_send_polls', True),
+                    can_send_other_messages=saved_perms.get('can_send_other_messages', True),
+                    can_add_web_page_previews=saved_perms.get('can_add_web_page_previews', True),
+                    can_change_info=saved_perms.get('can_change_info', False),
+                    can_pin_messages=saved_perms.get('can_pin_messages', False),
+                    can_manage_topics=saved_perms.get('can_manage_topics', False),
+                    can_invite_users=True  # Always keep invite permission open
+                )
             )
-        )
+            # Clear saved permissions
+            await clear_previous_permissions(chat_id)
+            await message.reply("**Grup kilidi acildi!** Onceki izinler geri yuklendi.")
+        else:
+            # No saved permissions, restore all to default
+            await bot.set_chat_permissions(
+                chat_id,
+                permissions=ChatPermissions(
+                    can_send_messages=True,
+                    can_send_audios=True,
+                    can_send_documents=True,
+                    can_send_photos=True,
+                    can_send_videos=True,
+                    can_send_video_notes=True,
+                    can_send_voice_notes=True,
+                    can_send_polls=True,
+                    can_send_other_messages=True,
+                    can_add_web_page_previews=True,
+                    can_invite_users=True  # Always keep invite permission open
+                )
+            )
+            await message.reply("**Grup kilidi acildi!** Tum izinler varsayilana ayarlandi.")
+
         await set_chat_locked(chat_id, False)
-        await message.reply("**Grup kilidi acildi!** Herkes mesaj yazabilir.")
     except Exception as e:
         await message.reply(f"Hata: {str(e)}")
 
