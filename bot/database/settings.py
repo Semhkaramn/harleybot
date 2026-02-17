@@ -14,7 +14,9 @@ async def get_chat_settings(chat_id: int) -> dict:
         'chat_id': chat_id,
         'chat_locked': False,
         'welcome_enabled': True,
-        'welcome_message': None
+        'welcome_message': None,
+        'admin_only_commands': True,
+        'delete_non_admin_commands': True
     }
 
 async def set_chat_locked(chat_id: int, locked: bool):
@@ -54,6 +56,26 @@ async def toggle_welcome(chat_id: int, enabled: bool):
             ON CONFLICT (chat_id)
             DO UPDATE SET welcome_enabled = $2, updated_at = CURRENT_TIMESTAMP
         """, chat_id, enabled)
+
+# Admin-only mode management
+async def set_admin_only_mode(chat_id: int, enabled: bool):
+    """Set admin-only command mode"""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("""
+            INSERT INTO chat_settings (chat_id, admin_only_commands, delete_non_admin_commands)
+            VALUES ($1, $2, $2)
+            ON CONFLICT (chat_id)
+            DO UPDATE SET
+                admin_only_commands = $2,
+                delete_non_admin_commands = $2,
+                updated_at = CURRENT_TIMESTAMP
+        """, chat_id, enabled)
+
+async def is_admin_only_mode(chat_id: int) -> bool:
+    """Check if admin-only mode is enabled"""
+    settings = await get_chat_settings(chat_id)
+    return settings.get('admin_only_commands', True)
 
 # Active tags management
 async def start_tag_session(chat_id: int, message: str, started_by: int):
