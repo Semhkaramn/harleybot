@@ -3,6 +3,17 @@ import random
 from aiogram import Bot
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, ChatMemberAdministrator, ChatMemberOwner
 
+
+def escape_markdown_v2(text: str) -> str:
+    """Escape special characters for MarkdownV2 parse mode"""
+    if not text:
+        return text
+    special_chars = ['\\', '_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!']
+    for char in special_chars:
+        text = text.replace(char, f'\\{char}')
+    return text
+
+
 async def is_admin(bot: Bot, chat_id: int, user_id: int) -> bool:
     """Check if user is admin in the chat"""
     try:
@@ -43,41 +54,34 @@ async def can_delete(bot: Bot, chat_id: int, user_id: int) -> bool:
     except Exception:
         return False
 
-def get_user_mention(user_id: int, username: str = None, first_name: str = None, use_html: bool = True) -> str:
+def get_user_mention(user_id: int, username: str = None, first_name: str = None) -> str:
     """Create a user mention
 
     Args:
         user_id: User's Telegram ID
         username: User's username (optional)
         first_name: User's first name (optional)
-        use_html: If True, returns HTML format mention (more reliable), otherwise Markdown
 
     Returns:
         A mention string that will notify the user when sent
     """
-    # If username exists, use @username format (works in both HTML and Markdown)
+    # If username exists, use @username format
     if username:
         return f"@{username}"
 
     # For users without username, we must use a text link with tg://user?id=
-    # This requires HTML or Markdown formatting
-
     # Determine the display name
     if first_name and first_name.strip():
         name = first_name.strip()
+        # Escape MarkdownV2 special characters in the name
+        for char in ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!', '\\']:
+            name = name.replace(char, f'\\{char}')
     else:
-        # Fallback: just show the name as "Kullanıcı" but link to their profile
-        name = "Kullanıcı"
+        # Fallback: use "Üye"
+        name = "Üye"
 
-    # HTML format is more reliable for mentions
-    if use_html:
-        # Escape HTML special characters in the name
-        name = name.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
-        return f'<a href="tg://user?id={user_id}">{name}</a>'
-    else:
-        # Markdown format - escape special characters
-        name = name.replace('[', '\\[').replace(']', '\\]').replace('(', '\\(').replace(')', '\\)')
-        return f"[{name}](tg://user?id={user_id})"
+    # Return MarkdownV2 format mention
+    return f"[{name}](tg://user?id={user_id})"
 
 def get_user_link(user_id: int, first_name: str = None) -> str:
     """Create a clickable user link"""
