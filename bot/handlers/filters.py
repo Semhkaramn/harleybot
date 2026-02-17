@@ -526,6 +526,35 @@ async def check_filter_message(message: Message, bot: Bot):
 
     text = message.text
 
+    # Debug log - uncomment to see what's happening
+    # print(f"[FILTER DEBUG] Chat: {chat_id}, Text: '{text}'")
+
+    # Check for matching filter
+    filter_data = await check_filters(chat_id, text)
+
+    # Debug log
+    # print(f"[FILTER DEBUG] Filter found: {filter_data is not None}")
+
+    if not filter_data:
+        return
+
+    await send_filter_response(message, bot, filter_data, chat_id)
+
+
+# Filter checker for GROUP messages with CAPTION (photo, video, etc.)
+@router.message(F.chat.type.in_(["group", "supergroup"]), F.caption, ~F.caption.startswith("/"))
+async def check_filter_message_caption(message: Message, bot: Bot):
+    if not message.caption:
+        return
+
+    chat_id = message.chat.id
+
+    # Check if allowed group
+    if not is_allowed_group(chat_id):
+        return
+
+    text = message.caption
+
     # Check for matching filter
     filter_data = await check_filters(chat_id, text)
 
