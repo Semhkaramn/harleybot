@@ -1,12 +1,75 @@
 from aiogram import Router, Bot, F
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.filters import Command
+from typing import Callable, Awaitable, Any
+from aiogram.types import TelegramObject
 
 from bot.config import BOT_NAME, BOT_VERSION, ALLOWED_GROUP_ID
 from bot.utils.helpers import is_admin
 from bot.database.settings import connect_user_to_chat, get_user_connected_chat, disconnect_user
 
 router = Router()
+
+
+# ==================== SİSTEM MESAJLARINI SİLME ====================
+
+def is_system_message(message: Message) -> bool:
+    """Check if a message is a system message (service message)"""
+    # Telegram sistem mesajları kontrolü
+    service_types = [
+        message.new_chat_members,       # Yeni üye katıldı
+        message.left_chat_member,       # Üye ayrıldı
+        message.pinned_message,         # Mesaj sabitlendi
+        message.new_chat_title,         # Grup adı değişti
+        message.new_chat_photo,         # Grup fotoğrafı değişti
+        message.delete_chat_photo,      # Grup fotoğrafı silindi
+        message.group_chat_created,     # Grup oluşturuldu
+        message.supergroup_chat_created, # Süper grup oluşturuldu
+        message.channel_chat_created,   # Kanal oluşturuldu
+        message.message_auto_delete_timer_changed,  # Otomatik silme zamanlayıcısı değişti
+        message.migrate_to_chat_id,     # Gruba taşındı
+        message.migrate_from_chat_id,   # Gruptan taşındı
+        message.video_chat_started,     # Video sohbet başladı
+        message.video_chat_ended,       # Video sohbet bitti
+        message.video_chat_participants_invited,  # Video sohbet davet edildi
+        message.video_chat_scheduled,   # Video sohbet planlandı
+        message.forum_topic_created,    # Forum konusu oluşturuldu
+        message.forum_topic_edited,     # Forum konusu düzenlendi
+        message.forum_topic_closed,     # Forum konusu kapatıldı
+        message.forum_topic_reopened,   # Forum konusu yeniden açıldı
+        message.general_forum_topic_hidden,    # Genel forum konusu gizlendi
+        message.general_forum_topic_unhidden,  # Genel forum konusu gösterildi
+        message.write_access_allowed,   # Yazma erişimi verildi
+    ]
+
+    # Herhangi biri True/dolu ise sistem mesajıdır
+    return any(service_types)
+
+
+@router.message.outer_middleware()
+async def auto_delete_system_messages_middleware(
+    handler: Callable[[TelegramObject, dict[str, Any]], Awaitable[Any]],
+    event: Message,
+    data: dict[str, Any]
+) -> Any:
+    """Middleware to automatically delete system/service messages"""
+    # Sadece grup mesajlarını işle
+    if event.chat.type in ["group", "supergroup"]:
+        chat_id = event.chat.id
+
+        # İzin verilen grup kontrolü
+        if is_allowed_group(chat_id):
+            # Sistem mesajı kontrolü
+            if is_system_message(event):
+                try:
+                    await event.delete()
+                except Exception:
+                    pass  # Silme hatalarını sessizce geç
+                # Sistem mesajını sildikten sonra handler'a devam etmeye gerek yok
+                return
+
+    # Normal mesajlar için handler'a devam et
+    return await handler(event, data)
 
 
 def is_allowed_group(chat_id: int) -> bool:
