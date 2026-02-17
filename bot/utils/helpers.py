@@ -65,22 +65,23 @@ def get_user_mention(user_id: int, username: str = None, first_name: str = None)
     Returns:
         A mention string that will notify the user when sent
     """
-    # If username exists, use @username format
-    if username:
-        return f"@{username}"
+    # Her zaman tg://user?id= formatında mention kullan
+    # Bu sayede kullanıcılar bildirim alır ve tıklanabilir link olur
 
-    # For users without username, we must use a text link with tg://user?id=
     # Determine the display name
     if first_name and first_name.strip():
         name = first_name.strip()
-        # Escape MarkdownV2 special characters in the name
-        for char in ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!', '\\']:
-            name = name.replace(char, f'\\{char}')
+    elif username:
+        name = username  # Eğer isim yoksa username'i göster
     else:
         # Fallback: use "Üye"
         name = "Üye"
 
-    # Return MarkdownV2 format mention
+    # Escape MarkdownV2 special characters in the name
+    for char in ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!', '\\']:
+        name = name.replace(char, f'\\{char}')
+
+    # Return MarkdownV2 format mention - HER ZAMAN bu format kullanılır
     return f"[{name}](tg://user?id={user_id})"
 
 def get_user_link(user_id: int, first_name: str = None) -> str:
