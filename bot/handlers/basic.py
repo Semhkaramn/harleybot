@@ -35,39 +35,39 @@ async def start_command(message: Message, bot: Bot):
                     await connect_user_to_chat(message.from_user.id, chat_id, chat.title or "Grup")
 
                     await message.reply(
-                        f"**{chat.title}** grubuna baglandiniz!\n\n"
-                        "Artik buradan grup ayarlarini yonetebilirsiniz:\n"
+                        f"**{chat.title}** grubuna bağlandınız!\n\n"
+                        "Artik buradan grup ayarlarini yönetebilirsiniz:\n"
                         "- `/filter` - Filter ekle/sil\n"
                         "- `/filters` - Filterleri listele\n"
                         "- `/adminonly` - Admin modu\n"
                         "- `/disconnect` - Baglantıyı kes\n\n"
-                        "Diger komutlar icin /help yazin."
+                        "Diger komutlar için /help yazin."
                     )
                 else:
-                    await message.reply("Bu grupta admin degilsiniz!")
+                    await message.reply("Bu grupta admin değilsiniz!")
             except:
-                await message.reply("Gecersiz grup!")
+                await message.reply("Geçersiz grup!")
             return
 
         # Normal start message
         text = (
             f"**Merhaba {user.first_name}!**\n\n"
-            f"Ben **{BOT_NAME}** - Grup yonetim botuyum.\n\n"
-            "**Ozelliklerim:**\n"
+            f"Ben **{BOT_NAME}** - Grup yönetim botuyum.\n\n"
+            "**Özelliklerim:**\n"
             "- Filter sistemi (resimli, butonlu, formatli)\n"
             "- Etiketleme sistemi\n"
             "- Grup kilitleme\n"
-            "- Ban/Mute/Kick komutlari\n"
-            "- Pin/Unpin islemleri\n"
+            "- Ban/Mute/Kick komutları\n"
+            "- Pin/Unpin işlemleri\n"
             "- Sadece admin komut modu\n\n"
-            "Beni bir gruba ekleyip yonetici yapin!"
+            "Beni bir gruba ekleyip yönetici yapin!"
         )
 
         me = await bot.get_me()
         buttons = InlineKeyboardMarkup(inline_keyboard=[
             [
                 InlineKeyboardButton(text="Gruba Ekle", url=f"https://t.me/{me.username}?startgroup=true"),
-                InlineKeyboardButton(text="Yardim", callback_data="help_main")
+                InlineKeyboardButton(text="Yardım", callback_data="help_main")
             ]
         ])
 
@@ -76,7 +76,7 @@ async def start_command(message: Message, bot: Bot):
         # Check if allowed group
         if not is_allowed_group(message.chat.id):
             return
-        await message.reply(f"**{BOT_NAME}** aktif!\nKomutlar icin: /help")
+        await message.reply(f"**{BOT_NAME}** aktif!\nKomutlar için: /help")
 
 
 # /help command
@@ -102,7 +102,7 @@ async def help_command(message: Message, bot: Bot):
 **{BOT_NAME} Komutlari**
 
 **Baglanti:**
-- `/connect` - Ozelden yonetim (sadece gruptan)
+- `/connect` - Özelden yönetim (sadece gruptan)
 
 **Etiketleme:**
 - `/kaydet` - Uyeleri kaydet
@@ -157,7 +157,7 @@ async def connect_command(message: Message, bot: Bot):
 
     # Only works in groups
     if message.chat.type == "private":
-        await message.reply("Bu komut sadece gruplarda calisir!")
+        await message.reply("Bu komut sadece gruplarda çalışır!")
         return
 
     # Check if allowed group
@@ -179,14 +179,14 @@ async def connect_command(message: Message, bot: Bot):
     buttons = InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(
-                text="Ozelden Devam Et",
+                text="Özelden Devam Et",
                 url=f"https://t.me/{me.username}?start=connect_{chat_id}"
             )
         ]
     ])
 
     await message.reply(
-        f"**{chat_title}** grubunu yonetmek icin ozele gelin:",
+        f"**{chat_title}** grubunu yonetmek için ozele gelin:",
         reply_markup=buttons
     )
 
@@ -283,12 +283,12 @@ async def help_callback(callback_query: CallbackQuery, bot: Bot):
     text = f"""
 **{BOT_NAME} Komutlari**
 
-Detayli yardim icin grupta /help yazin.
+Detayli yardim için grupta /help yazin.
 
 **Temel Komutlar:**
 - /start - Botu baslat
-- /help - Yardim
-- /connect - Ozelden yonetim
+- /help - Yardım
+- /connect - Özelden yönetim
 - /id - ID bilgisi
 - /info - Kullanici bilgisi
 """
@@ -307,13 +307,13 @@ async def disconnect_command(message: Message, bot: Bot):
     connection = await get_user_connected_chat(user_id)
 
     if not connection:
-        await message.reply("Hicbir gruba bagli degilsiniz!")
+        await message.reply("Hicbir gruba bagli değilsiniz!")
         return
 
     await disconnect_user(user_id)
     await message.reply(
         f"**{connection['chat_title']}** grubundan baglanti kesildi!\n\n"
-        "Baska bir gruba baglanmak icin o grupta `/connect` yazin."
+        "Baska bir gruba baglanmak için o grupta `/connect` yazin."
     )
 
 
@@ -332,10 +332,10 @@ async def status_command(message: Message, bot: Bot):
             f"**Baglanti Durumu**\n\n"
             f"Bagli grup: **{connection['chat_title']}**\n"
             f"Grup ID: `{connection['chat_id']}`\n\n"
-            f"Bu gruptan ayri olmak icin /disconnect yazin."
+            f"Bu gruptan ayri olmak için /disconnect yazin."
         )
     else:
         await message.reply(
-            "Hicbir gruba bagli degilsiniz!\n\n"
-            "Bir gruba baglanmak icin o grupta `/connect` yazin."
+            "Hicbir gruba bagli değilsiniz!\n\n"
+            "Bir gruba baglanmak için o grupta `/connect` yazin."
         )
