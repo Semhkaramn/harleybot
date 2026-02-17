@@ -123,10 +123,19 @@ async def check_filters(chat_id: int, text: str) -> dict | None:
             exact = keyword[6:]  # Remove 'exact:'
             matched = text_lower == exact.lower()
         else:
-            # Regular filter - check if keyword is in text (word boundary)
-            # Use word boundaries for better matching
-            pattern = r'\b' + re.escape(keyword) + r'\b'
-            matched = bool(re.search(pattern, text_lower, re.IGNORECASE))
+            # Regular filter - improved matching for special characters
+            keyword_lower = keyword.lower()
+
+            # Check if keyword starts with special character (!, @, #, $, etc.)
+            if keyword_lower and not keyword_lower[0].isalnum():
+                # For special character keywords, check if text contains or equals keyword
+                # Split text into words and check each
+                words = text_lower.split()
+                matched = keyword_lower in words or text_lower == keyword_lower
+            else:
+                # Standard word boundary matching for normal keywords
+                pattern = r'\b' + re.escape(keyword_lower) + r'\b'
+                matched = bool(re.search(pattern, text_lower, re.IGNORECASE))
 
         if matched:
             result = dict(row)
