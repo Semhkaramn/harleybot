@@ -173,9 +173,9 @@ async def naber_tag(message: Message, bot: Bot):
 
     for member in members:
         try:
-            mention = get_user_mention(member['user_id'], member.get('username'), member.get('first_name'))
+            mention = get_user_mention(member['user_id'], member.get('username'), member.get('first_name'), use_html=True)
             question = random.choice(RANDOM_QUESTIONS)
-            await bot.send_message(chat_id, f"{mention} {question}", parse_mode="Markdown")
+            await bot.send_message(chat_id, f"{mention} {question}", parse_mode="HTML")
             await asyncio.sleep(1)  # Anti-flood
         except TelegramRetryAfter as e:
             await asyncio.sleep(e.retry_after)
@@ -243,12 +243,12 @@ async def start_tagging(message: Message, bot: Bot):
         batch = members[index:index + 5]
         mentions = []
         for member in batch:
-            mention = get_user_mention(member['user_id'], member.get('username'), member.get('first_name'))
+            mention = get_user_mention(member['user_id'], member.get('username'), member.get('first_name'), use_html=True)
             mentions.append(mention)
 
         try:
             tag_text = f"{custom_message}\n\n" + " ".join(mentions)
-            await bot.send_message(chat_id, tag_text, parse_mode="Markdown")
+            await bot.send_message(chat_id, tag_text, parse_mode="HTML")
             index += 5
             await update_tag_index(chat_id, index)
             await asyncio.sleep(3)  # Anti-flood
@@ -322,15 +322,15 @@ async def tag_everyone(message: Message, bot: Bot):
         chunk = members[i:i + chunk_size]
         mentions = []
         for member in chunk:
-            mention = get_user_mention(member['user_id'], member.get('username'), member.get('first_name'))
+            mention = get_user_mention(member['user_id'], member.get('username'), member.get('first_name'), use_html=True)
             mentions.append(mention)
 
         try:
             if i == 0:
-                tag_text = f"**{custom_message}**\n\n" + " ".join(mentions)
+                tag_text = f"<b>{custom_message}</b>\n\n" + " ".join(mentions)
             else:
                 tag_text = " ".join(mentions)
-            await bot.send_message(chat_id, tag_text, parse_mode="Markdown")
+            await bot.send_message(chat_id, tag_text, parse_mode="HTML")
             await asyncio.sleep(2)
         except TelegramRetryAfter as e:
             await asyncio.sleep(e.retry_after)
