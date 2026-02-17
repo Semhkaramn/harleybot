@@ -48,7 +48,7 @@ async def get_filter(chat_id: int, keyword: str) -> dict | None:
     if result.get('buttons'):
         try:
             result['buttons'] = json.loads(result['buttons'])
-        except:
+        except (json.JSONDecodeError, TypeError):
             result['buttons'] = None
     return result
 
@@ -69,7 +69,8 @@ async def get_all_filters(chat_id: int) -> list:
         if filter_data.get('buttons'):
             try:
                 filter_data['buttons'] = json.loads(filter_data['buttons'])
-            except:
+            except (json.JSONDecodeError, TypeError) as e:
+                print(f"Button JSON parse error: {e}")
                 filter_data['buttons'] = None
         result.append(filter_data)
     return result
@@ -131,7 +132,8 @@ async def check_filters(chat_id: int, text: str) -> dict | None:
             if result.get('buttons'):
                 try:
                     result['buttons'] = json.loads(result['buttons'])
-                except:
+                except (json.JSONDecodeError, TypeError) as e:
+                    print(f"Button JSON parse error: {e}")
                     result['buttons'] = None
             return result
 
