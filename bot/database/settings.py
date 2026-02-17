@@ -1,12 +1,10 @@
-from bot.database.connection import get_pool
+from bot.database.connection import get_db, fetch_all, fetch_one, execute
 
 async def get_chat_settings(chat_id: int) -> dict:
     """Get chat settings"""
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        row = await conn.fetchrow("""
-            SELECT * FROM chat_settings WHERE chat_id = $1
-        """, chat_id)
+    row = await fetch_one("""
+        SELECT * FROM chat_settings WHERE chat_id = ?
+    """, (chat_id,))
 
     if row:
         return dict(row)
@@ -21,14 +19,14 @@ async def get_chat_settings(chat_id: int) -> dict:
 
 async def set_chat_locked(chat_id: int, locked: bool):
     """Set chat lock status"""
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        await conn.execute("""
-            INSERT INTO chat_settings (chat_id, chat_locked)
-            VALUES ($1, $2)
-            ON CONFLICT (chat_id)
-            DO UPDATE SET chat_locked = $2, updated_at = CURRENT_TIMESTAMP
-        """, chat_id, locked)
+    db = await get_db()
+    await db.execute("""
+        INSERT INTO chat_settings (chat_id, chat_locked)
+        VALUES (?, ?)
+        ON CONFLICT (chat_id)
+        DO UPDATE SET chat_locked = excluded.chat_locked, updated_at = CURRENT_TIMESTAMP
+    """, (chat_id, 1 if locked else 0))
+    await db.commit()
 
 async def is_chat_locked(chat_id: int) -> bool:
     """Check if chat is locked"""
@@ -37,40 +35,40 @@ async def is_chat_locked(chat_id: int) -> bool:
 
 async def set_welcome_message(chat_id: int, message: str):
     """Set welcome message"""
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        await conn.execute("""
-            INSERT INTO chat_settings (chat_id, welcome_message, welcome_enabled)
-            VALUES ($1, $2, TRUE)
-            ON CONFLICT (chat_id)
-            DO UPDATE SET welcome_message = $2, welcome_enabled = TRUE, updated_at = CURRENT_TIMESTAMP
-        """, chat_id, message)
+    db = await get_db()
+    await db.execute("""
+        INSERT INTO chat_settings (chat_id, welcome_message, welcome_enabled)
+        VALUES (?, ?, 1)
+        ON CONFLICT (chat_id)
+        DO UPDATE SET welcome_message = excluded.welcome_message, welcome_enabled = 1, updated_at = CURRENT_TIMESTAMP
+    """, (chat_id, message))
+    await db.commit()
 
 async def toggle_welcome(chat_id: int, enabled: bool):
     """Toggle welcome messages"""
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        await conn.execute("""
-            INSERT INTO chat_settings (chat_id, welcome_enabled)
-            VALUES ($1, $2)
-            ON CONFLICT (chat_id)
-            DO UPDATE SET welcome_enabled = $2, updated_at = CURRENT_TIMESTAMP
-        """, chat_id, enabled)
+    db = await get_db()
+    await db.execute("""
+        INSERT INTO chat_settings (chat_id, welcome_enabled)
+        VALUES (?, ?)
+        ON CONFLICT (chat_id)
+        DO UPDATE SET welcome_enabled = excluded.welcome_enabled, updated_at = CURRENT_TIMESTAMP
+    """, (chat_id, 1 if enabled else 0))
+    await db.commit()
 
 # Admin-only mode management
 async def set_admin_only_mode(chat_id: int, enabled: bool):
     """Set admin-only command mode"""
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        await conn.execute("""
-            INSERT INTO chat_settings (chat_id, admin_only_commands, delete_non_admin_commands)
-            VALUES ($1, $2, $2)
-            ON CONFLICT (chat_id)
-            DO UPDATE SET
-                admin_only_commands = $2,
-                delete_non_admin_commands = $2,
-                updated_at = CURRENT_TIMESTAMP
-        """, chat_id, enabled)
+    db = await get_db()
+    await db.execute("""
+        INSERT INTO chat_settings (chat_id, admin_only_commands, delete_non_admin_commands)
+        VALUES (?, ?, ?)
+        ON CONFLICT (chat_id)
+        DO UPDATE SET
+            admin_only_commands = excluded.admin_only_commands,
+            delete_non_admin_commands = excluded.delete_non_admin_commands,
+            updated_at = CURRENT_TIMESTAMP
+    """, (chat_id, 1 if enabled else 0, 1 if enabled else 0))
+    await db.commit()
 
 async def is_admin_only_mode(chat_id: int) -> bool:
     """Check if admin-only mode is enabled"""
@@ -80,39 +78,37 @@ async def is_admin_only_mode(chat_id: int) -> bool:
 # Active tags management
 async def start_tag_session(chat_id: int, message: str, started_by: int):
     """Start a new tag session"""
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        await conn.execute("""
-            INSERT INTO active_tags (chat_id, message, current_index, is_active, started_by)
-            VALUES ($1, $2, 0, TRUE, $3)
-            ON CONFLICT (chat_id)
-            DO UPDATE SET message = $2, current_index = 0, is_active = TRUE, started_by = $3
-        """, chat_id, message, started_by)
+    db = await get_db()
+    await db.execute("""
+        INSERT INTO active_tags (chat_id, message, current_index, is_active, started_by)
+        VALUES (?, ?, 0, 1, ?)
+        ON CONFLICT (chat_id)
+        DO UPDATE SET message = excluded.message, current_index = 0, is_active = 1, started_by = excluded.started_by
+    """, (chat_id, message, started_by))
+    await db.commit()
 
 async def get_tag_session(chat_id: int) -> dict | None:
     """Get active tag session"""
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        row = await conn.fetchrow("""
-            SELECT * FROM active_tags
-            WHERE chat_id = $1 AND is_active = TRUE
-        """, chat_id)
+    row = await fetch_one("""
+        SELECT * FROM active_tags
+        WHERE chat_id = ? AND is_active = 1
+    """, (chat_id,))
     return dict(row) if row else None
 
 async def update_tag_index(chat_id: int, new_index: int):
     """Update tag session index"""
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        await conn.execute("""
-            UPDATE active_tags SET current_index = $2
-            WHERE chat_id = $1
-        """, chat_id, new_index)
+    db = await get_db()
+    await db.execute("""
+        UPDATE active_tags SET current_index = ?
+        WHERE chat_id = ?
+    """, (new_index, chat_id))
+    await db.commit()
 
 async def stop_tag_session(chat_id: int):
     """Stop tag session"""
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        await conn.execute("""
-            UPDATE active_tags SET is_active = FALSE
-            WHERE chat_id = $1
-        """, chat_id)
+    db = await get_db()
+    await db.execute("""
+        UPDATE active_tags SET is_active = 0
+        WHERE chat_id = ?
+    """, (chat_id,))
+    await db.commit()
