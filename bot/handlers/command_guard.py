@@ -9,8 +9,41 @@ from aiogram.types import Message
 from aiogram.filters import Command
 
 from bot.utils.helpers import is_admin, is_bot_command
-from bot.database.settings import get_chat_settings, set_admin_only_mode
+from bot.database.settings import get_chat_settings, set_admin_only_mode, get_user_connected_chat
 from bot.config import ALLOWED_GROUP_ID
+
+
+async def get_target_chat_for_command(message, bot) -> tuple:
+    """
+    Get target chat_id for commands.
+    If in private chat, check for connected group.
+    Returns (chat_id, chat_title, is_connected, error_message)
+    """
+    user_id = message.from_user.id
+
+    if message.chat.type == "private":
+        # Check if user is connected to a group
+        connection = await get_user_connected_chat(user_id)
+        if not connection:
+            return None, None, False, (
+                "Hicbir gruba bagli degilsiniz!\n\n"
+                "Bir gruba baglanmak icin o grupta `/connect` yazin."
+            )
+
+        chat_id = connection['chat_id']
+        chat_title = connection['chat_title']
+
+        # Verify user is still admin in that group
+        if not await is_admin(bot, chat_id, user_id):
+            return None, None, False, (
+                f"**{chat_title}** grubunda artik admin degilsiniz!\n"
+                "Baglanti kesildi."
+            )
+
+        return chat_id, chat_title, True, None
+    else:
+        # In group, use group's chat_id
+        return message.chat.id, message.chat.title, False, None
 
 router = Router()
 
@@ -81,18 +114,21 @@ async def command_guard(message: Message, bot: Bot):
 @router.message(Command("adminonly"))
 async def toggle_admin_only(message: Message, bot: Bot):
     """Toggle admin-only command mode"""
-    chat_id = message.chat.id
     user_id = message.from_user.id
 
-    if message.chat.type == "private":
-        await message.reply("Bu komut sadece gruplarda calisir!")
+    # Get target chat (supports private chat connections)
+    chat_id, chat_title, is_connected, error = await get_target_chat_for_command(message, bot)
+
+    if error:
+        await message.reply(error)
         return
 
     # Check if allowed group
     if not is_allowed_group(chat_id):
         return
 
-    if not await is_admin(bot, chat_id, user_id):
+    # Check admin in groups (already checked for connected chats)
+    if not is_connected and not await is_admin(bot, chat_id, user_id):
         try:
             await message.delete()
         except:
@@ -102,13 +138,15 @@ async def toggle_admin_only(message: Message, bot: Bot):
     text = message.text or ""
     args = text.split()
 
+    group_info = f" (**{chat_title}**)" if is_connected else ""
+
     if len(args) < 2:
         settings = await get_chat_settings(chat_id)
         current = settings.get('admin_only_commands', True)
         status = "ACIK" if current else "KAPALI"
 
         await message.reply(
-            f"**Sadece Admin Komutu Modu**\n\n"
+            f"**Sadece Admin Komutu Modu**{group_info}\n\n"
             f"Mevcut durum: **{status}**\n\n"
             f"Kullanim:\n"
             f"`/adminonly on` - Aktif et (sadece adminler komut kullanabilir)\n"
@@ -121,14 +159,14 @@ async def toggle_admin_only(message: Message, bot: Bot):
     if action in ['on', 'acik', 'true', '1', 'aktif']:
         await set_admin_only_mode(chat_id, True)
         await message.reply(
-            "Sadece Admin modu **ACIK**!\n\n"
+            f"Sadece Admin modu **ACIK**!{group_info}\n\n"
             "Artik sadece adminler bot komutlarini kullanabilir.\n"
             "Diger kullanicilarin komutlari sessizce silinecek."
         )
     elif action in ['off', 'kapali', 'false', '0', 'deaktif']:
         await set_admin_only_mode(chat_id, False)
         await message.reply(
-            "Sadece Admin modu **KAPALI**!\n\n"
+            f"Sadece Admin modu **KAPALI**!{group_info}\n\n"
             "Artik herkes bot komutlarini kullanabilir."
         )
     else:
