@@ -10,12 +10,14 @@ BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 DATABASE_PATH = os.getenv("DATABASE_PATH", "bot_data.db")
 
 # Log Channel (optional)
-LOG_CHANNEL_ID = int(os.getenv("LOG_CHANNEL_ID", "0")) if os.getenv("LOG_CHANNEL_ID") else None
+_log_channel = os.getenv("LOG_CHANNEL_ID", "").strip()
+LOG_CHANNEL_ID = int(_log_channel) if _log_channel and _log_channel.lstrip('-').isdigit() else None
 
 # Allowed Group ID - Bot will ONLY work in this group
 # Set this to your group's chat ID (negative number for groups/supergroups)
 # Example: ALLOWED_GROUP_ID=-1001234567890
-ALLOWED_GROUP_ID = int(os.getenv("ALLOWED_GROUP_ID", "0")) if os.getenv("ALLOWED_GROUP_ID") else None
+_allowed_group = os.getenv("ALLOWED_GROUP_ID", "").strip()
+ALLOWED_GROUP_ID = int(_allowed_group) if _allowed_group and _allowed_group.lstrip('-').isdigit() else None
 
 # Bot settings
 BOT_NAME = "HarleyBot"
