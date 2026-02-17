@@ -20,38 +20,65 @@ def is_allowed_group(chat_id: int) -> bool:
     return chat_id == ALLOWED_GROUP_ID
 
 
+# ==================== HELP MENU KEYBOARDS ====================
+
+def get_help_main_keyboard() -> InlineKeyboardMarkup:
+    """Ana yardım menüsü klavyesi"""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="Etiketleme", callback_data="help_tag"),
+            InlineKeyboardButton(text="Filter Sistemi", callback_data="help_filter")
+        ],
+        [
+            InlineKeyboardButton(text="Ban/Kick/Mute", callback_data="help_moderation"),
+            InlineKeyboardButton(text="Grup Yonetimi", callback_data="help_group")
+        ],
+        [
+            InlineKeyboardButton(text="Baglanti", callback_data="help_connect"),
+            InlineKeyboardButton(text="Admin Modu", callback_data="help_admin")
+        ],
+        [
+            InlineKeyboardButton(text="Bilgi Komutlari", callback_data="help_info")
+        ]
+    ])
+
+
+def get_back_button() -> InlineKeyboardMarkup:
+    """Geri butonu"""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="◀️ Geri", callback_data="help_main")]
+    ])
+
+
 # ==================== SİSTEM MESAJLARINI SİLME ====================
 
 def is_system_message(message: Message) -> bool:
     """Check if a message is a system message (service message)"""
-    # Telegram sistem mesajları kontrolü
     service_types = [
-        message.new_chat_members,       # Yeni üye katıldı
-        message.left_chat_member,       # Üye ayrıldı
-        message.pinned_message,         # Mesaj sabitlendi
-        message.new_chat_title,         # Grup adı değişti
-        message.new_chat_photo,         # Grup fotoğrafı değişti
-        message.delete_chat_photo,      # Grup fotoğrafı silindi
-        message.group_chat_created,     # Grup oluşturuldu
-        message.supergroup_chat_created, # Süper grup oluşturuldu
-        message.channel_chat_created,   # Kanal oluşturuldu
-        message.message_auto_delete_timer_changed,  # Otomatik silme zamanlayıcısı değişti
-        message.migrate_to_chat_id,     # Gruba taşındı
-        message.migrate_from_chat_id,   # Gruptan taşındı
-        message.video_chat_started,     # Video sohbet başladı
-        message.video_chat_ended,       # Video sohbet bitti
-        message.video_chat_participants_invited,  # Video sohbet davet edildi
-        message.video_chat_scheduled,   # Video sohbet planlandı
-        message.forum_topic_created,    # Forum konusu oluşturuldu
-        message.forum_topic_edited,     # Forum konusu düzenlendi
-        message.forum_topic_closed,     # Forum konusu kapatıldı
-        message.forum_topic_reopened,   # Forum konusu yeniden açıldı
-        message.general_forum_topic_hidden,    # Genel forum konusu gizlendi
-        message.general_forum_topic_unhidden,  # Genel forum konusu gösterildi
-        message.write_access_allowed,   # Yazma erişimi verildi
+        message.new_chat_members,
+        message.left_chat_member,
+        message.pinned_message,
+        message.new_chat_title,
+        message.new_chat_photo,
+        message.delete_chat_photo,
+        message.group_chat_created,
+        message.supergroup_chat_created,
+        message.channel_chat_created,
+        message.message_auto_delete_timer_changed,
+        message.migrate_to_chat_id,
+        message.migrate_from_chat_id,
+        message.video_chat_started,
+        message.video_chat_ended,
+        message.video_chat_participants_invited,
+        message.video_chat_scheduled,
+        message.forum_topic_created,
+        message.forum_topic_edited,
+        message.forum_topic_closed,
+        message.forum_topic_reopened,
+        message.general_forum_topic_hidden,
+        message.general_forum_topic_unhidden,
+        message.write_access_allowed,
     ]
-
-    # Herhangi biri True/dolu ise sistem mesajıdır
     return any(service_types)
 
 
@@ -62,29 +89,21 @@ async def auto_delete_system_messages_middleware(
     data: dict[str, Any]
 ) -> Any:
     """Middleware to automatically delete system/service messages"""
-    # Sadece grup mesajlarını işle
     if event.chat.type in ["group", "supergroup"]:
         chat_id = event.chat.id
-
-        # İzin verilen grup kontrolü
         if is_allowed_group(chat_id):
-            # Sistem mesajı kontrolü
             if is_system_message(event):
                 try:
                     await event.delete()
                 except Exception:
-                    pass  # Silme hatalarını sessizce geç
-                # Sistem mesajını sildikten sonra handler'a devam etmeye gerek yok
+                    pass
                 return
-
-    # Normal mesajlar için handler'a devam et
     return await handler(event, data)
 
 
 # /start command
 @router.message(Command("start"))
 async def start_command(message: Message, bot: Bot):
-    # Null check for from_user (can be None for channel posts)
     if not message.from_user:
         return
 
@@ -98,65 +117,63 @@ async def start_command(message: Message, bot: Bot):
                 chat_id = int(text_content.split("connect_")[1])
                 chat = await bot.get_chat(chat_id)
 
-                # Verify user is still admin
                 if await is_admin(bot, chat_id, message.from_user.id):
-                    # Save connection to database
                     await connect_user_to_chat(message.from_user.id, chat_id, chat.title or "Grup")
 
                     await message.reply(
-                        f"**{chat.title}** grubuna bağlandınız!\n\n"
-                        "Artik buradan grup ayarlarini yönetebilirsiniz:\n"
+                        f"**{chat.title}** grubuna baglandiniz!\n\n"
+                        "Artik buradan grup ayarlarini yonetebilirsiniz:\n"
                         "- `/filter` - Filter ekle/sil\n"
                         "- `/filters` - Filterleri listele\n"
                         "- `/adminonly` - Admin modu\n"
-                        "- `/disconnect` - Baglantıyı kes\n\n"
-                        "Diger komutlar için /help yazin."
+                        "- `/disconnect` - Baglantiyi kes\n\n"
+                        "Diger komutlar icin /help yazin."
                     )
                 else:
-                    await message.reply("Bu grupta admin değilsiniz!")
+                    await message.reply("Bu grupta admin degilsiniz!")
             except Exception:
-                await message.reply("Geçersiz grup!")
+                await message.reply("Gecersiz grup!")
             return
 
         # Normal start message
         text = (
             f"**Merhaba {user.first_name}!**\n\n"
-            f"Ben **{BOT_NAME}** - Grup yönetim botuyum.\n\n"
-            "**Özelliklerim:**\n"
+            f"Ben **{BOT_NAME}** - Grup yonetim botuyum.\n\n"
+            "**Ozelliklerim:**\n"
             "- Filter sistemi (resimli, butonlu, formatli)\n"
             "- Etiketleme sistemi\n"
             "- Grup kilitleme\n"
-            "- Ban/Mute/Kick komutları\n"
-            "- Pin/Unpin işlemleri\n"
+            "- Ban/Mute/Kick komutlari\n"
+            "- Pin/Unpin islemleri\n"
             "- Sadece admin komut modu\n\n"
-            "Beni bir gruba ekleyip yönetici yapin!"
+            "Beni bir gruba ekleyip yonetici yapin!"
         )
 
         me = await bot.get_me()
         buttons = InlineKeyboardMarkup(inline_keyboard=[
             [
                 InlineKeyboardButton(text="Gruba Ekle", url=f"https://t.me/{me.username}?startgroup=true"),
-                InlineKeyboardButton(text="Yardım", callback_data="help_main")
+                InlineKeyboardButton(text="Yardim", callback_data="help_main")
             ]
         ])
 
         await message.reply(text, reply_markup=buttons)
     else:
-        # Check if allowed group
         if not is_allowed_group(message.chat.id):
             return
-        await message.reply(f"**{BOT_NAME}** aktif!\nKomutlar için: /help")
+        await message.reply(f"**{BOT_NAME}** aktif!\nKomutlar icin: /help")
 
 
 # /help command
 @router.message(Command("help"))
 async def help_command(message: Message, bot: Bot):
     chat_id = message.chat.id
-    user_id = message.from_user.id
+    user_id = message.from_user.id if message.from_user else None
 
-    # Check if admin in groups
+    if not user_id:
+        return
+
     if message.chat.type != "private":
-        # Check if allowed group
         if not is_allowed_group(chat_id):
             return
 
@@ -168,72 +185,366 @@ async def help_command(message: Message, bot: Bot):
             return
 
     text = f"""
-**{BOT_NAME} Komutlari**
+**{BOT_NAME} Yardim Menusu**
 
-**Baglanti:**
-- `/connect` - Özelden yönetim (sadece gruptan)
+Asagidaki butonlara tiklayarak detayli bilgi alabilirsiniz.
 
-**Etiketleme:**
-- `/kaydet` - Uyeleri kaydet
-- `/uyeler` - Kayitli uye sayisi
-- `/temizle` - Kayitlari sil
-- `/naber` - Herkese soru sor
-- `/etiket <mesaj>` - 5'erli etiketle
-- `/durdur` - Etiketlemeyi durdur
-- `/herkes <mesaj>` - Herkesi etiketle
+**Hizli Bakis:**
+- **Etiketleme:** Grup uyelerini etiketleme
+- **Filter:** Otomatik yanitlar
+- **Moderasyon:** Ban/Kick/Mute islemleri
+- **Grup Yonetimi:** Lock/Pin/Purge vs.
+- **Baglanti:** Ozelden grup yonetimi
+- **Admin Modu:** Komut kisitlamalari
 
-**Filter Sistemi:**
-- `/filter kelime yanit` - Filter ekle
-- `/filter "coklu kelime" yanit` - Coklu kelime
-- `/filters` - Filterleri listele
-- `/stop kelime` - Filter sil
-- `/stopall` - Tumunu sil
-
-**Ban Komutlari:**
-- `/ban` - Banla
-- `/tban <sure>` - Sureli ban (1h, 30m, 1d)
-- `/unban` - Ban kaldir
-
-**Kick Komutlari:**
-- `/kick` - At
-
-**Mute Komutlari:**
-- `/mute` - Sustur
-- `/tmute <sure>` - Sureli sustur
-- `/unmute` - Susturmayi kaldir
-
-**Grup Yonetimi:**
-- `/lock` - Grubu kilitle
-- `/unlock` - Kilidi ac
-- `/del` - Mesaj sil
-- `/purge` - Toplu mesaj sil
-- `/pin` - Sabitle
-- `/unpin` - Sabitlemeyi kaldir
-- `/admins` - Admin listesi
-
-**Admin Modu:**
-- `/adminonly on` - Sadece adminler komut kullanabilir
-- `/adminonly off` - Herkes komut kullanabilir
+Bir kategori secin:
 """
-    await message.reply(text)
+    await message.reply(text, reply_markup=get_help_main_keyboard())
 
 
-# /connect command - Sends PM button for admin management
+# ==================== HELP CALLBACK HANDLERS ====================
+
+@router.callback_query(F.data == "help_main")
+async def help_main_callback(callback_query: CallbackQuery, bot: Bot):
+    """Ana yardım menüsüne dön"""
+    await callback_query.answer()
+
+    text = f"""
+**{BOT_NAME} Yardim Menusu**
+
+Asagidaki butonlara tiklayarak detayli bilgi alabilirsiniz.
+
+**Hizli Bakis:**
+- **Etiketleme:** Grup uyelerini etiketleme
+- **Filter:** Otomatik yanitlar
+- **Moderasyon:** Ban/Kick/Mute islemleri
+- **Grup Yonetimi:** Lock/Pin/Purge vs.
+- **Baglanti:** Ozelden grup yonetimi
+- **Admin Modu:** Komut kisitlamalari
+
+Bir kategori secin:
+"""
+    await callback_query.message.edit_text(text, reply_markup=get_help_main_keyboard())
+
+
+@router.callback_query(F.data == "help_tag")
+async def help_tag_callback(callback_query: CallbackQuery, bot: Bot):
+    """Etiketleme yardımı"""
+    await callback_query.answer()
+
+    text = """
+**ETIKETLEME SISTEMI**
+
+Grup uyelerini etiketlemek icin kullanilir.
+
+**Komutlar:**
+
+`/kaydet`
+Grup uyelerini veritabanina kaydeder. Ilk olarak adminler kaydedilir, diger uyeler mesaj attikca otomatik eklenir.
+
+`/uyeler` veya `/üyeler`
+Kayitli uye sayisini gosterir.
+
+`/temizle`
+Tum kayitli uyeleri siler.
+
+`/naber`
+Her uyeye tek tek rastgele sorular gonderir:
+"Naber?", "Nasilsin?", "Ne yapiyorsun?" gibi.
+
+`/etiket <mesaj>`
+5'erli gruplar halinde etiketler.
+Ornek: `/etiket Bugun saat 20:00'de toplanti var!`
+
+`/durdur`
+Devam eden etiketleme islemini durdurur.
+
+`/herkes <mesaj>`
+Tum uyeleri tek seferde etiketler.
+Ornek: `/herkes Onemli duyuru!`
+
+**Not:** Uyeler mesaj attikca otomatik kaydedilir.
+"""
+    await callback_query.message.edit_text(text, reply_markup=get_back_button())
+
+
+@router.callback_query(F.data == "help_filter")
+async def help_filter_callback(callback_query: CallbackQuery, bot: Bot):
+    """Filter yardımı"""
+    await callback_query.answer()
+
+    text = """
+**FILTER SISTEMI**
+
+Belirli kelimelere otomatik yanit verir.
+
+**Komutlar:**
+
+`/filter <kelime> <yanit>`
+Yeni filter ekler.
+Ornek: `/filter selam Merhaba!`
+
+`/filter "coklu kelime" <yanit>`
+Coklu kelime filtreleri icin tirnak kullanin.
+Ornek: `/filter "nasilsin" Iyiyim sen?`
+
+`/filters`
+Tum filtreleri listeler.
+
+`/stop <kelime>`
+Filter siler.
+Ornek: `/stop selam`
+
+`/stopall`
+Tum filterleri siler.
+
+**Medya ile Filter:**
+Bir sticker/resme yanit vererek:
+`/filter kelime`
+
+**Butonlu Filter:**
+`/filter site Mesaj [Buton](https://link.com)`
+
+**Yan Yana Butonlar (:same):**
+`/filter test [Btn1](https://link1.com) [Btn2](https://link2.com:same)`
+
+**Ozel Formatlar:**
+- `{first}` - Kullanici adi
+- `{username}` - @kullanici
+- `{mention}` - Tiklanabilir mention
+- `{chatname}` - Grup adi
+
+**Filter Turleri:**
+- Normal: Kelime cumle icinde gecerse tetiklenir
+- `prefix:kelime` - Mesaj bu kelimeyle baslarsa
+- `exact:kelime` - Tam eslesme gerekir
+"""
+    await callback_query.message.edit_text(text, reply_markup=get_back_button())
+
+
+@router.callback_query(F.data == "help_moderation")
+async def help_moderation_callback(callback_query: CallbackQuery, bot: Bot):
+    """Moderasyon yardımı"""
+    await callback_query.answer()
+
+    text = """
+**MODERASYON KOMUTLARI**
+
+**BAN Komutlari:**
+
+`/ban`
+Kullaniciyi kalici olarak banlar.
+- Mesaji yanitlayarak: `/ban`
+- ID ile: `/ban 123456789`
+- Username ile: `/ban @kullanici`
+
+`/tban <sure>`
+Sureli ban.
+- `/tban @user 1h` - 1 saat
+- `/tban @user 30m` - 30 dakika
+- `/tban @user 1d` - 1 gun
+- `/tban @user 1w` - 1 hafta
+
+`/unban`
+Bani kaldirir.
+
+**KICK Komutlari:**
+
+`/kick`
+Kullaniciyi gruptan atar (tekrar katilabilir).
+
+**MUTE Komutlari:**
+
+`/mute`
+Kullaniciyi susturur (mesaj yazamaz).
+
+`/tmute <sure>`
+Sureli susturma.
+- `/tmute @user 1h` - 1 saat
+- `/tmute @user 30m` - 30 dakika
+
+`/unmute`
+Susturmayi kaldirir.
+
+**Not:** Bu komutlar sadece adminler tarafindan kullanilabilir.
+"""
+    await callback_query.message.edit_text(text, reply_markup=get_back_button())
+
+
+@router.callback_query(F.data == "help_group")
+async def help_group_callback(callback_query: CallbackQuery, bot: Bot):
+    """Grup yönetimi yardımı"""
+    await callback_query.answer()
+
+    text = """
+**GRUP YONETIMI**
+
+**Grup Kilitleme:**
+
+`/lock` veya `chat kapat`
+Grubu kilitler - sadece adminler mesaj yazabilir.
+
+`/unlock` veya `chat ac`
+Kilidi kaldirir.
+
+**Mesaj Yonetimi:**
+
+`/del`
+Yanitlanan mesaji siler.
+
+`/purge`
+Yanitlanan mesajdan itibaren tum mesajlari siler.
+(Toplu silme islemi)
+
+**Sabitleme:**
+
+`/pin`
+Yanitlanan mesaji sabitler.
+
+`/unpin`
+- Yanitlanan mesajin sabitlemesini kaldirir.
+- Yanit yoksa tum sabitlemeleri kaldirir.
+
+**Diger:**
+
+`/admins`
+Grup adminlerini listeler.
+
+**Not:** Tum komutlar admin yetkisi gerektirir.
+"""
+    await callback_query.message.edit_text(text, reply_markup=get_back_button())
+
+
+@router.callback_query(F.data == "help_connect")
+async def help_connect_callback(callback_query: CallbackQuery, bot: Bot):
+    """Bağlantı yardımı"""
+    await callback_query.answer()
+
+    text = """
+**BAGLANTI SISTEMI**
+
+Grubu ozelden yonetmenizi saglar.
+
+**Nasil Calisir:**
+
+1. Grupta `/connect` yazin
+2. "Ozelden Devam Et" butonuna tiklayin
+3. Bot'un ozel mesajinda grup komutlarini kullanin
+
+**Komutlar:**
+
+`/connect`
+Grup icinde kullanin - ozel mesaja baglanti linki gonderir.
+
+`/disconnect`
+Ozelde kullanin - grup baglantisindan cikar.
+
+`/status`
+Ozelde kullanin - hangi gruba bagli oldugunuzu gosterir.
+
+**Ozelden Kullanilabilir Komutlar:**
+- `/filter` - Filter ekle
+- `/filters` - Filterleri listele
+- `/stop` - Filter sil
+- `/stopall` - Tum filterleri sil
+- `/adminonly` - Admin modunu ayarla
+
+**Not:** Sadece grup adminleri baglanabilir.
+"""
+    await callback_query.message.edit_text(text, reply_markup=get_back_button())
+
+
+@router.callback_query(F.data == "help_admin")
+async def help_admin_callback(callback_query: CallbackQuery, bot: Bot):
+    """Admin modu yardımı"""
+    await callback_query.answer()
+
+    text = """
+**ADMIN MODU**
+
+Bot komutlarini sadece adminlerin kullanmasini saglar.
+
+**Komutlar:**
+
+`/adminonly`
+Mevcut durumu gosterir.
+
+`/adminonly on`
+Admin modunu aktif eder.
+- Sadece adminler komut kullanabilir
+- Diger kullanicilarin komutlari sessizce silinir
+
+`/adminonly off`
+Admin modunu kapatir.
+- Herkes komut kullanabilir
+
+**Varsayilan:** Admin modu ACIK
+
+**Alternatif Komutlar:**
+- `/adminonly acik` veya `/adminonly aktif`
+- `/adminonly kapali` veya `/adminonly deaktif`
+
+**Not:** Bu ayar grup bazlidir.
+Her grup icin ayri ayarlanabilir.
+"""
+    await callback_query.message.edit_text(text, reply_markup=get_back_button())
+
+
+@router.callback_query(F.data == "help_info")
+async def help_info_callback(callback_query: CallbackQuery, bot: Bot):
+    """Bilgi komutları yardımı"""
+    await callback_query.answer()
+
+    text = """
+**BILGI KOMUTLARI**
+
+`/start`
+Botu baslatir ve karsilama mesaji gonderir.
+
+`/help`
+Bu yardim menusunu acar.
+
+`/id`
+- Kendi ID'nizi gosterir
+- Bir mesaji yanitlayarak: o kisinin ID'sini gosterir
+- Grupta: Grup ID'sini de gosterir
+
+`/info`
+- Detayli kullanici bilgisi gosterir
+- Isim, soyisim, username, ID
+- Bot mu, Premium mi vs.
+
+**Bot Hakkinda:**
+- **Ad:** {bot_name}
+- **Surum:** {version}
+
+**Ozellikler:**
+- Otomatik uye kaydetme
+- Sistem mesajlarini silme
+- Filter sistemi
+- Etiketleme sistemi
+- Moderasyon araclari
+""".format(bot_name=BOT_NAME, version=BOT_VERSION)
+
+    await callback_query.message.edit_text(text, reply_markup=get_back_button())
+
+
+# /connect command
 @router.message(Command("connect"))
 async def connect_command(message: Message, bot: Bot):
     chat_id = message.chat.id
-    user_id = message.from_user.id
+    user_id = message.from_user.id if message.from_user else None
 
-    # Only works in groups
-    if message.chat.type == "private":
-        await message.reply("Bu komut sadece gruplarda çalışır!")
+    if not user_id:
         return
 
-    # Check if allowed group
+    if message.chat.type == "private":
+        await message.reply("Bu komut sadece gruplarda calisir!")
+        return
+
     if not is_allowed_group(chat_id):
         return
 
-    # Check if admin
     if not await is_admin(bot, chat_id, user_id):
         try:
             await message.delete()
@@ -241,21 +552,20 @@ async def connect_command(message: Message, bot: Bot):
             pass
         return
 
-    # Admin - send PM button
     me = await bot.get_me()
     chat_title = message.chat.title or "Grup"
 
     buttons = InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(
-                text="Özelden Devam Et",
+                text="Ozelden Devam Et",
                 url=f"https://t.me/{me.username}?start=connect_{chat_id}"
             )
         ]
     ])
 
     await message.reply(
-        f"**{chat_title}** grubunu yonetmek için ozele gelin:",
+        f"**{chat_title}** grubunu yonetmek icin ozele gelin:",
         reply_markup=buttons
     )
 
@@ -264,11 +574,12 @@ async def connect_command(message: Message, bot: Bot):
 @router.message(Command("id"))
 async def id_command(message: Message, bot: Bot):
     chat_id = message.chat.id
-    user_id = message.from_user.id
+    user_id = message.from_user.id if message.from_user else None
 
-    # Check if admin in groups
+    if not user_id:
+        return
+
     if message.chat.type != "private":
-        # Check if allowed group
         if not is_allowed_group(chat_id):
             return
 
@@ -310,11 +621,12 @@ async def id_command(message: Message, bot: Bot):
 @router.message(Command("info"))
 async def info_command(message: Message, bot: Bot):
     chat_id = message.chat.id
-    user_id = message.from_user.id
+    user_id = message.from_user.id if message.from_user else None
 
-    # Check if admin in groups
+    if not user_id:
+        return
+
     if message.chat.type != "private":
-        # Check if allowed group
         if not is_allowed_group(chat_id):
             return
 
@@ -344,27 +656,6 @@ async def info_command(message: Message, bot: Bot):
     await message.reply(text)
 
 
-# Callback handler for help button
-@router.callback_query(F.data == "help_main")
-async def help_callback(callback_query: CallbackQuery, bot: Bot):
-    await callback_query.answer()
-
-    text = f"""
-**{BOT_NAME} Komutlari**
-
-Detayli yardim için grupta /help yazin.
-
-**Temel Komutlar:**
-- /start - Botu baslat
-- /help - Yardım
-- /connect - Özelden yönetim
-- /id - ID bilgisi
-- /info - Kullanici bilgisi
-"""
-
-    await callback_query.message.edit_text(text)
-
-
 # /disconnect command
 @router.message(Command("disconnect"))
 async def disconnect_command(message: Message, bot: Bot):
@@ -372,25 +663,31 @@ async def disconnect_command(message: Message, bot: Bot):
     if message.chat.type != "private":
         return
 
+    if not message.from_user:
+        return
+
     user_id = message.from_user.id
     connection = await get_user_connected_chat(user_id)
 
     if not connection:
-        await message.reply("Hicbir gruba bagli değilsiniz!")
+        await message.reply("Hicbir gruba bagli degilsiniz!")
         return
 
     await disconnect_user(user_id)
     await message.reply(
         f"**{connection['chat_title']}** grubundan baglanti kesildi!\n\n"
-        "Baska bir gruba baglanmak için o grupta `/connect` yazin."
+        "Baska bir gruba baglanmak icin o grupta `/connect` yazin."
     )
 
 
-# /status command - show current connection
+# /status command
 @router.message(Command("status"))
 async def status_command(message: Message, bot: Bot):
     """Show current connection status"""
     if message.chat.type != "private":
+        return
+
+    if not message.from_user:
         return
 
     user_id = message.from_user.id
@@ -401,10 +698,10 @@ async def status_command(message: Message, bot: Bot):
             f"**Baglanti Durumu**\n\n"
             f"Bagli grup: **{connection['chat_title']}**\n"
             f"Grup ID: `{connection['chat_id']}`\n\n"
-            f"Bu gruptan ayri olmak için /disconnect yazin."
+            f"Bu gruptan ayrilmak icin /disconnect yazin."
         )
     else:
         await message.reply(
-            "Hicbir gruba bagli değilsiniz!\n\n"
-            "Bir gruba baglanmak için o grupta `/connect` yazin."
+            "Hicbir gruba bagli degilsiniz!\n\n"
+            "Bir gruba baglanmak icin o grupta `/connect` yazin."
         )
