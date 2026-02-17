@@ -31,7 +31,7 @@ async def set_chat_locked(chat_id: int, locked: bool):
 async def is_chat_locked(chat_id: int) -> bool:
     """Check if chat is locked"""
     settings = await get_chat_settings(chat_id)
-    return settings.get('chat_locked', False)
+    return bool(settings.get('chat_locked', 0))
 
 async def set_welcome_message(chat_id: int, message: str):
     """Set welcome message"""
