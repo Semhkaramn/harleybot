@@ -17,6 +17,12 @@ from bot.config import ALLOWED_GROUP_ID
 
 router = Router()
 
+# Telegram service/system account IDs that should NOT be saved as members
+# 777000 = Telegram's official notification/verification account
+# 136817688 = Channel_Bot (forwards channel messages to linked groups)
+# 1087968824 = GroupAnonymousBot (anonymous group admin messages)
+TELEGRAM_SERVICE_IDS = {777000, 136817688, 1087968824}
+
 # Random questions for naber tagger
 RANDOM_QUESTIONS = [
     "Naber?",
@@ -46,6 +52,9 @@ async def save_all_members(message: Message, bot: Bot):
         await message.reply("Bu komut sadece gruplarda calisir!")
         return
 
+    if not message.from_user:
+        return
+
     chat_id = message.chat.id
     user_id = message.from_user.id
 
@@ -69,12 +78,14 @@ async def save_all_members(message: Message, bot: Bot):
         # We'll save admins and track members as they send messages
         admins = await bot.get_chat_administrators(chat_id)
         for member in admins:
+            # Skip bots and Telegram service accounts (777000, Channel_Bot, etc.)
             if member.user and not member.user.is_bot:
-                members_list.append({
-                    'user_id': member.user.id,
-                    'username': member.user.username,
-                    'first_name': member.user.first_name
-                })
+                if member.user.id not in TELEGRAM_SERVICE_IDS:
+                    members_list.append({
+                        'user_id': member.user.id,
+                        'username': member.user.username,
+                        'first_name': member.user.first_name
+                    })
 
         # Note: For full member list, you need Telegram Premium API or userbot
         # This implementation saves admins only via Bot API
@@ -104,6 +115,9 @@ async def show_members_count(message: Message, bot: Bot):
     if message.chat.type == "private":
         return
 
+    if not message.from_user:
+        return
+
     chat_id = message.chat.id
     user_id = message.from_user.id
 
@@ -127,6 +141,9 @@ async def clear_members(message: Message, bot: Bot):
     if message.chat.type == "private":
         return
 
+    if not message.from_user:
+        return
+
     chat_id = message.chat.id
     user_id = message.from_user.id
 
@@ -148,6 +165,9 @@ async def clear_members(message: Message, bot: Bot):
 @router.message(Command("naber"))
 async def naber_tag(message: Message, bot: Bot):
     if message.chat.type == "private":
+        return
+
+    if not message.from_user:
         return
 
     chat_id = message.chat.id
@@ -193,6 +213,9 @@ async def naber_tag(message: Message, bot: Bot):
 @router.message(Command("etiket"))
 async def start_tagging(message: Message, bot: Bot):
     if message.chat.type == "private":
+        return
+
+    if not message.from_user:
         return
 
     chat_id = message.chat.id
@@ -275,6 +298,9 @@ async def stop_tagging(message: Message, bot: Bot):
     if message.chat.type == "private":
         return
 
+    if not message.from_user:
+        return
+
     chat_id = message.chat.id
     user_id = message.from_user.id
 
@@ -300,6 +326,9 @@ async def stop_tagging(message: Message, bot: Bot):
 @router.message(Command("herkes"))
 async def tag_everyone(message: Message, bot: Bot):
     if message.chat.type == "private":
+        return
+
+    if not message.from_user:
         return
 
     chat_id = message.chat.id
@@ -365,13 +394,18 @@ async def auto_save_member_middleware(
     # Only process group messages
     if event.chat.type in ["group", "supergroup"]:
         if event.from_user and not event.from_user.is_bot:
+            user_id = event.from_user.id
             chat_id = event.chat.id
+
+            # Skip Telegram service accounts (777000, Channel_Bot, GroupAnonymousBot, etc.)
+            if user_id in TELEGRAM_SERVICE_IDS:
+                return await handler(event, data)
 
             if is_allowed_group(chat_id):
                 try:
                     await save_member(
                         chat_id=chat_id,
-                        user_id=event.from_user.id,
+                        user_id=user_id,
                         username=event.from_user.username,
                         first_name=event.from_user.first_name
                     )
