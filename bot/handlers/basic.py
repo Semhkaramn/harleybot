@@ -11,6 +11,15 @@ from bot.database.settings import connect_user_to_chat, get_user_connected_chat,
 router = Router()
 
 
+# ==================== YARDIMCI FONKSİYONLAR ====================
+
+def is_allowed_group(chat_id: int) -> bool:
+    """Check if bot is allowed to operate in this group"""
+    if ALLOWED_GROUP_ID is None:
+        return True  # No restriction if not configured
+    return chat_id == ALLOWED_GROUP_ID
+
+
 # ==================== SİSTEM MESAJLARINI SİLME ====================
 
 def is_system_message(message: Message) -> bool:
@@ -72,16 +81,13 @@ async def auto_delete_system_messages_middleware(
     return await handler(event, data)
 
 
-def is_allowed_group(chat_id: int) -> bool:
-    """Check if bot is allowed to operate in this group"""
-    if ALLOWED_GROUP_ID is None:
-        return True  # No restriction if not configured
-    return chat_id == ALLOWED_GROUP_ID
-
-
 # /start command
 @router.message(Command("start"))
 async def start_command(message: Message, bot: Bot):
+    # Null check for from_user (can be None for channel posts)
+    if not message.from_user:
+        return
+
     user = message.from_user
     text_content = message.text or ""
 
@@ -108,7 +114,7 @@ async def start_command(message: Message, bot: Bot):
                     )
                 else:
                     await message.reply("Bu grupta admin değilsiniz!")
-            except:
+            except Exception:
                 await message.reply("Geçersiz grup!")
             return
 
@@ -157,7 +163,7 @@ async def help_command(message: Message, bot: Bot):
         if not await is_admin(bot, chat_id, user_id):
             try:
                 await message.delete()
-            except:
+            except Exception:
                 pass
             return
 
@@ -231,7 +237,7 @@ async def connect_command(message: Message, bot: Bot):
     if not await is_admin(bot, chat_id, user_id):
         try:
             await message.delete()
-        except:
+        except Exception:
             pass
         return
 
@@ -269,7 +275,7 @@ async def id_command(message: Message, bot: Bot):
         if not await is_admin(bot, chat_id, user_id):
             try:
                 await message.delete()
-            except:
+            except Exception:
                 pass
             return
 
@@ -315,7 +321,7 @@ async def info_command(message: Message, bot: Bot):
         if not await is_admin(bot, chat_id, user_id):
             try:
                 await message.delete()
-            except:
+            except Exception:
                 pass
             return
 
