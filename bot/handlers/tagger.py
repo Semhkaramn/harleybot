@@ -7,7 +7,7 @@ from aiogram.exceptions import TelegramRetryAfter, TelegramBadRequest
 
 from bot.database.members import (
     save_members_bulk, get_all_members, get_members_count,
-    get_members_batch, delete_all_members
+    get_members_batch, delete_all_members, save_member
 )
 from bot.database.settings import (
     start_tag_session, get_tag_session, update_tag_index, stop_tag_session
@@ -56,7 +56,7 @@ async def save_all_members(message: Message, bot: Bot):
     if not await is_admin(bot, chat_id, user_id):
         try:
             await message.delete()
-        except:
+        except Exception:
             pass
         return
 
@@ -113,7 +113,7 @@ async def show_members_count(message: Message, bot: Bot):
     if not await is_admin(bot, chat_id, user_id):
         try:
             await message.delete()
-        except:
+        except Exception:
             pass
         return
 
@@ -136,7 +136,7 @@ async def clear_members(message: Message, bot: Bot):
     if not await is_admin(bot, chat_id, user_id):
         try:
             await message.delete()
-        except:
+        except Exception:
             pass
         return
 
@@ -159,7 +159,7 @@ async def naber_tag(message: Message, bot: Bot):
     if not await is_admin(bot, chat_id, user_id):
         try:
             await message.delete()
-        except:
+        except Exception:
             pass
         return
 
@@ -175,8 +175,9 @@ async def naber_tag(message: Message, bot: Bot):
         try:
             mention = get_user_mention(member['user_id'], member.get('username'), member.get('first_name'))
             question = random.choice(RANDOM_QUESTIONS)
-            # Escape question for MarkdownV2
-            for char in ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!', '\\', '?']:
+            # Escape question for MarkdownV2 - backslash MUST be first
+            question = question.replace('\\', '\\\\')
+            for char in ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!', '?']:
                 question = question.replace(char, f'\\{char}')
             await bot.send_message(chat_id, f"{mention} {question}", parse_mode="MarkdownV2")
             await asyncio.sleep(1)  # Anti-flood
@@ -203,7 +204,7 @@ async def start_tagging(message: Message, bot: Bot):
     if not await is_admin(bot, chat_id, user_id):
         try:
             await message.delete()
-        except:
+        except Exception:
             pass
         return
 
@@ -250,9 +251,9 @@ async def start_tagging(message: Message, bot: Bot):
             mentions.append(mention)
 
         try:
-            # Escape custom message for MarkdownV2
-            escaped_message = custom_message
-            for char in ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!', '\\']:
+            # Escape custom message for MarkdownV2 - backslash MUST be first
+            escaped_message = custom_message.replace('\\', '\\\\')
+            for char in ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!']:
                 escaped_message = escaped_message.replace(char, f'\\{char}')
             tag_text = f"{escaped_message}\n\n" + " ".join(mentions)
             await bot.send_message(chat_id, tag_text, parse_mode="MarkdownV2")
@@ -283,7 +284,7 @@ async def stop_tagging(message: Message, bot: Bot):
     if not await is_admin(bot, chat_id, user_id):
         try:
             await message.delete()
-        except:
+        except Exception:
             pass
         return
 
@@ -310,7 +311,7 @@ async def tag_everyone(message: Message, bot: Bot):
     if not await is_admin(bot, chat_id, user_id):
         try:
             await message.delete()
-        except:
+        except Exception:
             pass
         return
 
@@ -334,9 +335,9 @@ async def tag_everyone(message: Message, bot: Bot):
 
         try:
             if i == 0:
-                # Escape custom message for MarkdownV2
-                escaped_message = custom_message
-                for char in ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!', '\\']:
+                # Escape custom message for MarkdownV2 - backslash MUST be first
+                escaped_message = custom_message.replace('\\', '\\\\')
+                for char in ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!']:
                     escaped_message = escaped_message.replace(char, f'\\{char}')
                 tag_text = f"*{escaped_message}*\n\n" + " ".join(mentions)
             else:
@@ -367,9 +368,6 @@ async def auto_save_member_middleware(
             chat_id = event.chat.id
 
             if is_allowed_group(chat_id):
-                # Import here to avoid circular import
-                from bot.database.members import save_member
-
                 try:
                     await save_member(
                         chat_id=chat_id,
