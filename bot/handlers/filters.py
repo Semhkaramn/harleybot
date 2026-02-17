@@ -8,7 +8,7 @@ from bot.database.filters import (
     delete_filter, delete_all_filters, check_filters
 )
 from bot.utils.helpers import (
-    is_admin, process_filter_response, parse_buttons,
+    is_admin, process_filter_response, parse_buttons, parse_buttons_raw,
     build_keyboard, apply_fillings, parse_random_content
 )
 from bot.config import ALLOWED_GROUP_ID
@@ -200,17 +200,17 @@ async def filter_command(message: Message, bot: Bot):
 
         if reply.caption:
             caption = reply.caption
-            _, btn_list = parse_buttons(caption)
+            _, btn_list = parse_buttons_raw(caption)
             if btn_list:
                 buttons_list = btn_list
         elif reply.text and not response:
             response = reply.text
-            _, btn_list = parse_buttons(response)
+            _, btn_list = parse_buttons_raw(response)
             if btn_list:
                 buttons_list = btn_list
 
     if response:
-        _, btn_list = parse_buttons(response)
+        _, btn_list = parse_buttons_raw(response)
         if btn_list:
             buttons_list = btn_list
 
