@@ -315,8 +315,8 @@ async def unmute_user(message: Message, bot: Bot):
 
 # ==================== CHAT KAPAT/AÇ COMMANDS ====================
 
-@router.message(F.text.lower() == "chat kapat")
-async def lock_chat(message: Message, bot: Bot):
+# Helper function for locking chat
+async def _lock_chat(message: Message, bot: Bot):
     if message.chat.type == "private":
         return
 
@@ -362,8 +362,9 @@ async def lock_chat(message: Message, bot: Bot):
     except TelegramBadRequest as e:
         await message.reply(f"Hata: {e.message}")
 
-@router.message(F.text.lower() == "chat aç")
-async def unlock_chat(message: Message, bot: Bot):
+
+# Helper function for unlocking chat
+async def _unlock_chat(message: Message, bot: Bot):
     if message.chat.type == "private":
         return
 
@@ -400,7 +401,6 @@ async def unlock_chat(message: Message, bot: Bot):
             )
             # Clear saved permissions
             await clear_previous_permissions(chat_id)
-            await message.reply("**Chat açıldı!**")
         else:
             # No saved permissions, restore all to default
             await bot.set_chat_permissions(
@@ -419,11 +419,35 @@ async def unlock_chat(message: Message, bot: Bot):
                     can_invite_users=True  # Always keep invite permission open
                 )
             )
-            await message.reply("**Chat açıldı!**")
 
         await set_chat_locked(chat_id, False)
+        await message.reply("**Chat açıldı!**")
     except Exception as e:
         await message.reply(f"Hata: {str(e)}")
+
+
+# /lock command
+@router.message(Command("lock"))
+async def lock_chat_cmd(message: Message, bot: Bot):
+    await _lock_chat(message, bot)
+
+
+# /unlock command
+@router.message(Command("unlock"))
+async def unlock_chat_cmd(message: Message, bot: Bot):
+    await _unlock_chat(message, bot)
+
+
+# "chat kapat" text trigger
+@router.message(F.text.casefold() == "chat kapat")
+async def lock_chat_text(message: Message, bot: Bot):
+    await _lock_chat(message, bot)
+
+
+# "chat aç" text trigger
+@router.message(F.text.casefold() == "chat aç")
+async def unlock_chat_text(message: Message, bot: Bot):
+    await _unlock_chat(message, bot)
 
 # ==================== MESSAGE MANAGEMENT ====================
 
