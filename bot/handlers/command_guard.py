@@ -66,6 +66,10 @@ async def command_guard(message: Message, bot: Bot):
     Note: This handler only processes commands (starts with /)
     and does NOT block other handlers from running.
     """
+    # Null check for from_user
+    if not message.from_user:
+        return
+
     text = message.text.strip()
 
     # Check if it's one of our bot commands
@@ -114,6 +118,9 @@ async def command_guard(message: Message, bot: Bot):
 @router.message(Command("adminonly"))
 async def toggle_admin_only(message: Message, bot: Bot):
     """Toggle admin-only command mode"""
+    if not message.from_user:
+        return
+
     user_id = message.from_user.id
 
     # Get target chat (supports private chat connections)
