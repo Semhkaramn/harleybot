@@ -389,10 +389,22 @@ async def purge_messages(message: Message, bot: Bot):
     end_id = message.message_id
 
     deleted = 0
-    for msg_id in range(start_id, end_id + 1):
+    message_ids = list(range(start_id, end_id + 1))
+
+    # Batch delete messages (max 100 per request)
+    for i in range(0, len(message_ids), 100):
+        batch = message_ids[i:i + 100]
         try:
-            await bot.delete_message(chat_id, msg_id)
-            deleted += 1
+            await bot.delete_messages(chat_id, batch)
+            deleted += len(batch)
+        except TelegramBadRequest:
+            # Fallback to single deletion if batch fails
+            for msg_id in batch:
+                try:
+                    await bot.delete_message(chat_id, msg_id)
+                    deleted += 1
+                except Exception:
+                    continue
         except Exception:
             continue
 
