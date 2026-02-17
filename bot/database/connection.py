@@ -21,27 +21,31 @@ async def get_db():
 
 async def fetch_one(query: str, *args):
     """Fetch one row from database"""
-    async with pool.acquire() as conn:
+    db_pool = await get_db()
+    async with db_pool.acquire() as conn:
         row = await conn.fetchrow(query, *args)
         return dict(row) if row else None
 
 
 async def fetch_all(query: str, *args):
     """Fetch all rows from database"""
-    async with pool.acquire() as conn:
+    db_pool = await get_db()
+    async with db_pool.acquire() as conn:
         rows = await conn.fetch(query, *args)
         return [dict(row) for row in rows]
 
 
 async def execute(query: str, *args):
     """Execute a query"""
-    async with pool.acquire() as conn:
+    db_pool = await get_db()
+    async with db_pool.acquire() as conn:
         await conn.execute(query, *args)
 
 
 async def executemany(query: str, params_list: list):
     """Execute many queries"""
-    async with pool.acquire() as conn:
+    db_pool = await get_db()
+    async with db_pool.acquire() as conn:
         await conn.executemany(query, params_list)
 
 
