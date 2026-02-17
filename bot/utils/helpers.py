@@ -47,7 +47,11 @@ def get_user_mention(user_id: int, username: str = None, first_name: str = None)
     """Create a user mention"""
     if username:
         return f"@{username}"
-    name = first_name or "Kullanici"
+    # Use first_name if available and not empty, otherwise create a user link with ID
+    if first_name and first_name.strip():
+        name = first_name.strip()
+    else:
+        name = f"Uye_{user_id}"
     return f"[{name}](tg://user?id={user_id})"
 
 def get_user_link(user_id: int, first_name: str = None) -> str:
@@ -193,7 +197,11 @@ def parse_buttons_raw(text: str) -> tuple[str, list]:
     for btn_text, url_data in matches:
         # Check if :same is at the end
         same_line = url_data.endswith(':same')
-        url = url_data.rstrip(':same').strip()
+        # Use proper string slicing instead of rstrip to avoid removing URL characters
+        if same_line:
+            url = url_data[:-5].strip()  # Remove ':same' (5 characters)
+        else:
+            url = url_data.strip()
 
         # Remove buttonurl:// or buttonurl: prefix if present
         url = re.sub(r'^buttonurl:/?/?', '', url)
