@@ -12,8 +12,42 @@ from bot.utils.helpers import (
     build_keyboard, apply_fillings, parse_random_content
 )
 from bot.config import ALLOWED_GROUP_ID
+from bot.database.settings import get_user_connected_chat
 
 router = Router()
+
+
+async def get_target_chat(message: Message, bot: Bot) -> tuple:
+    """
+    Get target chat_id for commands.
+    If in private chat, check for connected group.
+    Returns (chat_id, chat_title, is_connected, error_message)
+    """
+    user_id = message.from_user.id
+
+    if message.chat.type == "private":
+        # Check if user is connected to a group
+        connection = await get_user_connected_chat(user_id)
+        if not connection:
+            return None, None, False, (
+                "Hicbir gruba bagli degilsiniz!\n\n"
+                "Bir gruba baglanmak icin o grupta `/connect` yazin."
+            )
+
+        chat_id = connection['chat_id']
+        chat_title = connection['chat_title']
+
+        # Verify user is still admin in that group
+        if not await is_admin(bot, chat_id, user_id):
+            return None, None, False, (
+                f"**{chat_title}** grubunda artik admin degilsiniz!\n"
+                "Baglanti kesildi."
+            )
+
+        return chat_id, chat_title, True, None
+    else:
+        # In group, use group's chat_id
+        return message.chat.id, message.chat.title, False, None
 
 
 def is_allowed_group(chat_id: int) -> bool:
@@ -96,18 +130,21 @@ def extract_media_info(message: Message) -> tuple:
 
 @router.message(Command("filter"))
 async def filter_command(message: Message, bot: Bot):
-    if message.chat.type == "private":
-        await message.reply("Bu komut sadece gruplarda calisir!")
-        return
-
-    chat_id = message.chat.id
     user_id = message.from_user.id
+
+    # Get target chat (supports private chat connections)
+    chat_id, chat_title, is_connected, error = await get_target_chat(message, bot)
+
+    if error:
+        await message.reply(error)
+        return
 
     # Check if allowed group
     if not is_allowed_group(chat_id):
         return
 
-    if not await is_admin(bot, chat_id, user_id):
+    # Check admin in groups (already checked for connected chats)
+    if not is_connected and not await is_admin(bot, chat_id, user_id):
         try:
             await message.delete()
         except:
@@ -180,28 +217,35 @@ async def filter_command(message: Message, bot: Bot):
         )
         added.append(keyword)
 
+    # Prepare response message
+    group_info = f" (**{chat_title}** grubuna)" if is_connected else ""
+
     if len(added) == 1:
         filter_info = f"**{added[0]}**"
         if media_type:
             filter_info += f" ({media_type})"
-        await message.reply(f"Filter eklendi: {filter_info}")
+        await message.reply(f"Filter eklendi{group_info}: {filter_info}")
     else:
-        await message.reply(f"**{len(added)}** filter eklendi:\n" + ", ".join(f"`{k}`" for k in added))
+        await message.reply(f"**{len(added)}** filter eklendi{group_info}:\n" + ", ".join(f"`{k}`" for k in added))
 
 
 @router.message(Command("filters"))
 async def list_filters(message: Message, bot: Bot):
-    if message.chat.type == "private":
-        return
-
-    chat_id = message.chat.id
     user_id = message.from_user.id
+
+    # Get target chat (supports private chat connections)
+    chat_id, chat_title, is_connected, error = await get_target_chat(message, bot)
+
+    if error:
+        await message.reply(error)
+        return
 
     # Check if allowed group
     if not is_allowed_group(chat_id):
         return
 
-    if not await is_admin(bot, chat_id, user_id):
+    # Check admin in groups (already checked for connected chats)
+    if not is_connected and not await is_admin(bot, chat_id, user_id):
         try:
             await message.delete()
         except:
@@ -210,11 +254,13 @@ async def list_filters(message: Message, bot: Bot):
 
     all_filters = await get_all_filters(chat_id)
 
+    group_name = chat_title if is_connected else "Bu Grup"
+
     if not all_filters:
-        await message.reply("Bu grupta hic filter yok.")
+        await message.reply(f"**{group_name}**'ta hic filter yok.")
         return
 
-    text = "**Bu Gruptaki Filterler:**\n\n"
+    text = f"**{group_name} Filterleri:**\n\n"
     for f in all_filters:
         keyword = f['keyword']
         media_type = f.get('media_type')
@@ -238,17 +284,21 @@ async def list_filters(message: Message, bot: Bot):
 
 @router.message(Command("stop"))
 async def stop_filter(message: Message, bot: Bot):
-    if message.chat.type == "private":
-        return
-
-    chat_id = message.chat.id
     user_id = message.from_user.id
+
+    # Get target chat (supports private chat connections)
+    chat_id, chat_title, is_connected, error = await get_target_chat(message, bot)
+
+    if error:
+        await message.reply(error)
+        return
 
     # Check if allowed group
     if not is_allowed_group(chat_id):
         return
 
-    if not await is_admin(bot, chat_id, user_id):
+    # Check admin in groups (already checked for connected chats)
+    if not is_connected and not await is_admin(bot, chat_id, user_id):
         try:
             await message.delete()
         except:
@@ -267,33 +317,41 @@ async def stop_filter(message: Message, bot: Bot):
             return
         keyword = args[1]
 
+    group_info = f" (**{chat_title}**)" if is_connected else ""
+
     if await delete_filter(chat_id, keyword):
-        await message.reply(f"Filter silindi: **{keyword}**")
+        await message.reply(f"Filter silindi{group_info}: **{keyword}**")
     else:
-        await message.reply(f"Filter bulunamadi: **{keyword}**")
+        await message.reply(f"Filter bulunamadi{group_info}: **{keyword}**")
 
 
 @router.message(Command("stopall"))
 async def stop_all_filters(message: Message, bot: Bot):
-    if message.chat.type == "private":
-        return
-
-    chat_id = message.chat.id
     user_id = message.from_user.id
+
+    # Get target chat (supports private chat connections)
+    chat_id, chat_title, is_connected, error = await get_target_chat(message, bot)
+
+    if error:
+        await message.reply(error)
+        return
 
     # Check if allowed group
     if not is_allowed_group(chat_id):
         return
 
-    if not await is_admin(bot, chat_id, user_id):
+    # Check admin in groups (already checked for connected chats)
+    if not is_connected and not await is_admin(bot, chat_id, user_id):
         try:
             await message.delete()
         except:
             pass
         return
 
+    group_info = f" (**{chat_title}**)" if is_connected else ""
+
     count = await delete_all_filters(chat_id)
-    await message.reply(f"**{count}** filter silindi.")
+    await message.reply(f"**{count}** filter silindi{group_info}.")
 
 
 # Filter checker - responds to messages matching filters
