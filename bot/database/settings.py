@@ -112,3 +112,32 @@ async def stop_tag_session(chat_id: int):
             UPDATE active_tags SET is_active = 0
             WHERE chat_id = $1
         """, chat_id)
+
+# User connection management (for private chat admin)
+async def connect_user_to_chat(user_id: int, chat_id: int, chat_title: str):
+    """Connect a user to a chat for private management"""
+    pool = await get_db()
+    async with pool.acquire() as conn:
+        await conn.execute("""
+            INSERT INTO user_connections (user_id, chat_id, chat_title)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (user_id)
+            DO UPDATE SET chat_id = EXCLUDED.chat_id, chat_title = EXCLUDED.chat_title, updated_at = CURRENT_TIMESTAMP
+        """, user_id, chat_id, chat_title)
+
+async def get_user_connected_chat(user_id: int) -> dict | None:
+    """Get the chat a user is connected to"""
+    row = await fetch_one("""
+        SELECT chat_id, chat_title FROM user_connections WHERE user_id = $1
+    """, user_id)
+    if row:
+        return {'chat_id': row['chat_id'], 'chat_title': row['chat_title']}
+    return None
+
+async def disconnect_user(user_id: int):
+    """Disconnect a user from any chat"""
+    pool = await get_db()
+    async with pool.acquire() as conn:
+        await conn.execute("""
+            DELETE FROM user_connections WHERE user_id = $1
+        """, user_id)
