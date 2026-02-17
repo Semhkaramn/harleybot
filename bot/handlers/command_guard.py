@@ -4,20 +4,22 @@ Silently deletes bot commands from non-admin users in groups.
 Admin-only command enforcement.
 """
 
-from pyrogram import Client, filters
-from pyrogram.types import Message
-from bot.utils.helpers import is_admin, is_bot_command, extract_command_name, BOT_COMMANDS
-from bot.database.settings import get_chat_settings
+from aiogram import Router, Bot, F
+from aiogram.types import Message
+from aiogram.filters import Command
 
+from bot.utils.helpers import is_admin, is_bot_command
+from bot.database.settings import get_chat_settings, set_admin_only_mode
 
-# This handler runs FIRST (group=-1) to intercept commands before other handlers
-@Client.on_message(filters.group & filters.text, group=-1)
-async def command_guard(client: Client, message: Message):
+router = Router()
+
+# This middleware checks all messages
+@router.message(F.chat.type.in_(["group", "supergroup"]))
+async def command_guard(message: Message, bot: Bot):
     """
     Intercept all text messages in groups.
     If it's a bot command from a non-admin:
     - Delete the message silently
-    - Don't process further (stop propagation)
     """
     if not message.text:
         return
@@ -36,10 +38,10 @@ async def command_guard(client: Client, message: Message):
     user_id = message.from_user.id
 
     # Check if user is admin
-    user_is_admin = await is_admin(client, chat_id, user_id)
+    user_is_admin = await is_admin(bot, chat_id, user_id)
 
     if user_is_admin:
-        # Admin can use commands, let the message pass through
+        # Admin can use commands
         return
 
     # Non-admin trying to use a bot command
@@ -59,27 +61,27 @@ async def command_guard(client: Client, message: Message):
         except Exception:
             pass
 
-    # Stop propagation - don't let other handlers process this
-    message.stop_propagation()
 
-
-# Settings commands for admins
-@Client.on_message(filters.command("adminonly") & filters.group)
-async def toggle_admin_only(client: Client, message: Message):
+# /adminonly command
+@router.message(Command("adminonly"))
+async def toggle_admin_only(message: Message, bot: Bot):
     """Toggle admin-only command mode"""
     chat_id = message.chat.id
     user_id = message.from_user.id
 
-    if not await is_admin(client, chat_id, user_id):
+    if message.chat.type == "private":
+        await message.reply("Bu komut sadece gruplarda calisir!")
+        return
+
+    if not await is_admin(bot, chat_id, user_id):
         try:
             await message.delete()
         except:
             pass
         return
 
-    from bot.database.settings import get_chat_settings
-
-    args = message.text.split()
+    text = message.text or ""
+    args = text.split()
 
     if len(args) < 2:
         settings = await get_chat_settings(chat_id)
@@ -97,8 +99,6 @@ async def toggle_admin_only(client: Client, message: Message):
 
     action = args[1].lower()
 
-    from bot.database.settings import set_admin_only_mode
-
     if action in ['on', 'acik', 'true', '1', 'aktif']:
         await set_admin_only_mode(chat_id, True)
         await message.reply(
@@ -114,25 +114,3 @@ async def toggle_admin_only(client: Client, message: Message):
         )
     else:
         await message.reply("Gecersiz secenek. `on` veya `off` kullanin.")
-
-
-@Client.on_message(filters.command("setadminonly") & filters.group)
-async def set_admin_only_settings(client: Client, message: Message):
-    """Configure admin-only settings"""
-    chat_id = message.chat.id
-    user_id = message.from_user.id
-
-    if not await is_admin(client, chat_id, user_id):
-        try:
-            await message.delete()
-        except:
-            pass
-        return
-
-    await message.reply(
-        "**Admin Komut Ayarlari**\n\n"
-        "`/adminonly on` - Sadece adminler komut kullanabilir\n"
-        "`/adminonly off` - Herkes komut kullanabilir\n\n"
-        "Bu mod acik oldugunda, admin olmayan kullanicilarin\n"
-        "bot komutlari sessizce silinir ve islem yapilmaz."
-    )
