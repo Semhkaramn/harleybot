@@ -4,6 +4,7 @@ from aiogram.filters import Command
 
 from bot.config import BOT_NAME, BOT_VERSION, ALLOWED_GROUP_ID
 from bot.utils.helpers import is_admin
+from bot.database.settings import connect_user_to_chat, get_user_connected_chat, disconnect_user
 
 router = Router()
 
@@ -30,10 +31,17 @@ async def start_command(message: Message, bot: Bot):
 
                 # Verify user is still admin
                 if await is_admin(bot, chat_id, message.from_user.id):
+                    # Save connection to database
+                    await connect_user_to_chat(message.from_user.id, chat_id, chat.title or "Grup")
+
                     await message.reply(
                         f"**{chat.title}** grubuna baglandiniz!\n\n"
-                        "Buradan grup ayarlarini yonetebilirsiniz.\n"
-                        "Komutlar icin /help yazin."
+                        "Artik buradan grup ayarlarini yonetebilirsiniz:\n"
+                        "- `/filter` - Filter ekle/sil\n"
+                        "- `/filters` - Filterleri listele\n"
+                        "- `/adminonly` - Admin modu\n"
+                        "- `/disconnect` - Baglantıyı kes\n\n"
+                        "Diger komutlar icin /help yazin."
                     )
                 else:
                     await message.reply("Bu grupta admin degilsiniz!")
@@ -286,3 +294,48 @@ Detayli yardim icin grupta /help yazin.
 """
 
     await callback_query.message.edit_text(text)
+
+
+# /disconnect command
+@router.message(Command("disconnect"))
+async def disconnect_command(message: Message, bot: Bot):
+    """Disconnect from connected group"""
+    if message.chat.type != "private":
+        return
+
+    user_id = message.from_user.id
+    connection = await get_user_connected_chat(user_id)
+
+    if not connection:
+        await message.reply("Hicbir gruba bagli degilsiniz!")
+        return
+
+    await disconnect_user(user_id)
+    await message.reply(
+        f"**{connection['chat_title']}** grubundan baglanti kesildi!\n\n"
+        "Baska bir gruba baglanmak icin o grupta `/connect` yazin."
+    )
+
+
+# /status command - show current connection
+@router.message(Command("status"))
+async def status_command(message: Message, bot: Bot):
+    """Show current connection status"""
+    if message.chat.type != "private":
+        return
+
+    user_id = message.from_user.id
+    connection = await get_user_connected_chat(user_id)
+
+    if connection:
+        await message.reply(
+            f"**Baglanti Durumu**\n\n"
+            f"Bagli grup: **{connection['chat_title']}**\n"
+            f"Grup ID: `{connection['chat_id']}`\n\n"
+            f"Bu gruptan ayri olmak icin /disconnect yazin."
+        )
+    else:
+        await message.reply(
+            "Hicbir gruba bagli degilsiniz!\n\n"
+            "Bir gruba baglanmak icin o grupta `/connect` yazin."
+        )
