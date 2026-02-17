@@ -46,14 +46,12 @@ async def start_command(message: Message, bot: Bot):
             f"**Merhaba {user.first_name}!**\n\n"
             f"Ben **{BOT_NAME}** - Grup yonetim botuyum.\n\n"
             "**Ozelliklerim:**\n"
-            "- Filter sistemi (resimli, butonlu, formatlı)\n"
+            "- Filter sistemi (resimli, butonlu, formatli)\n"
             "- Etiketleme sistemi\n"
             "- Grup kilitleme\n"
             "- Ban/Mute/Kick komutlari\n"
             "- Pin/Unpin islemleri\n"
             "- Sadece admin komut modu\n\n"
-            "**Sadece BOT_TOKEN ile calisiyorum!**\n"
-            "API_ID ve API_HASH gerekmez.\n\n"
             "Beni bir gruba ekleyip yonetici yapin!"
         )
 
