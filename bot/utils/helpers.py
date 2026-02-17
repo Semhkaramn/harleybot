@@ -175,8 +175,8 @@ def parse_random_content(text: str) -> str:
     return text
 
 
-def parse_buttons(text: str) -> tuple[str, list]:
-    """Parse buttons from text - supports simple format [text](url) and [text](url:same)"""
+def parse_buttons_raw(text: str) -> tuple[str, list]:
+    """Parse buttons from text and return serializable data for database storage"""
     if not text:
         return text, []
 
@@ -202,14 +202,15 @@ def parse_buttons(text: str) -> tuple[str, list]:
         if not url.startswith(('http://', 'https://', 'tg://')):
             url = 'https://' + url
 
-        button = InlineKeyboardButton(text=btn_text.strip(), url=url)
+        # Store as serializable dict instead of InlineKeyboardButton
+        button_data = {'text': btn_text.strip(), 'url': url}
 
         if same_line and current_row:
-            current_row.append(button)
+            current_row.append(button_data)
         else:
             if current_row:
                 buttons.append(current_row)
-            current_row = [button]
+            current_row = [button_data]
 
     if current_row:
         buttons.append(current_row)
@@ -222,11 +223,43 @@ def parse_buttons(text: str) -> tuple[str, list]:
     return cleaned_text, buttons
 
 
+def parse_buttons(text: str) -> tuple[str, list]:
+    """Parse buttons from text and return InlineKeyboardButton objects"""
+    cleaned_text, raw_buttons = parse_buttons_raw(text)
+
+    if not raw_buttons:
+        return cleaned_text, []
+
+    # Convert raw button data to InlineKeyboardButton objects
+    buttons = []
+    for row in raw_buttons:
+        button_row = []
+        for btn_data in row:
+            button_row.append(InlineKeyboardButton(text=btn_data['text'], url=btn_data['url']))
+        buttons.append(button_row)
+
+    return cleaned_text, buttons
+
+
 def build_keyboard(buttons: list) -> InlineKeyboardMarkup | None:
-    """Build InlineKeyboardMarkup from button list"""
+    """Build InlineKeyboardMarkup from button list (supports both raw dicts and InlineKeyboardButton objects)"""
     if not buttons:
         return None
-    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+    # Convert raw dicts to InlineKeyboardButton if needed
+    keyboard_rows = []
+    for row in buttons:
+        button_row = []
+        for btn in row:
+            if isinstance(btn, dict):
+                # Raw dict from database - convert to InlineKeyboardButton
+                button_row.append(InlineKeyboardButton(text=btn['text'], url=btn['url']))
+            else:
+                # Already an InlineKeyboardButton
+                button_row.append(btn)
+        keyboard_rows.append(button_row)
+
+    return InlineKeyboardMarkup(inline_keyboard=keyboard_rows)
 
 
 def extract_buttons_from_text(text: str) -> tuple[str, InlineKeyboardMarkup | None]:
