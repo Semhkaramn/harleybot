@@ -331,7 +331,7 @@ BOT_COMMANDS = [
     'ban', 'tban', 'dban', 'sban', 'unban',
     'kick', 'dkick', 'skick',
     'mute', 'tmute', 'dmute', 'smute', 'unmute',
-    'del', 'purge', 'pin', 'unpin', 'admins',
+    'lock', 'unlock', 'del', 'purge', 'pin', 'unpin', 'admins',
     'setadminonly', 'adminonly'
 ]
 
