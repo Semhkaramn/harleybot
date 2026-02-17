@@ -490,7 +490,9 @@ async def send_filter_response(message: Message, bot: Bot, filter_data: dict, ch
         # If Markdown parsing fails, try without parse_mode
         try:
             if media_type and file_id:
-                if media_type == 'photo':
+                if media_type == 'sticker':
+                    await message.reply_sticker(file_id)
+                elif media_type == 'photo':
                     await message.reply_photo(file_id, caption=caption or response, reply_markup=keyboard)
                 elif media_type == 'video':
                     await message.reply_video(file_id, caption=caption or response, reply_markup=keyboard)
@@ -500,6 +502,10 @@ async def send_filter_response(message: Message, bot: Bot, filter_data: dict, ch
                     await message.reply_document(file_id, caption=caption or response, reply_markup=keyboard)
                 elif media_type == 'audio':
                     await message.reply_audio(file_id, caption=caption or response, reply_markup=keyboard)
+                elif media_type == 'voice':
+                    await message.reply_voice(file_id, reply_markup=keyboard)
+                elif media_type == 'video_note':
+                    await message.reply_video_note(file_id)
             elif response:
                 await message.reply(response, reply_markup=keyboard)
         except:
