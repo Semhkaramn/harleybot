@@ -61,28 +61,38 @@ def parse_filter_keywords(text: str) -> list:
     """Parse filter keywords from command text"""
     keywords = []
 
-    # Check for multiple keywords with parentheses
-    paren_match = re.search(r'\(([^)]+)\)', text)
+    # Remove /filter command prefix
+    if text.startswith('/filter'):
+        text = text[7:].strip()
+
+    if not text:
+        return []
+
+    # Check for multiple keywords with parentheses at the START only
+    # Must not be buttonurl or other special parentheses
+    paren_match = re.match(r'^\(([^)]+)\)', text)
     if paren_match:
         content = paren_match.group(1)
-        quoted = re.findall(r'"([^"]+)"', content)
-        keywords.extend(quoted)
-        remaining = re.sub(r'"[^"]+"', '', content)
-        for part in remaining.split(','):
-            part = part.strip()
-            if part:
-                keywords.append(part)
-        return keywords
+        # Make sure it's not buttonurl
+        if 'buttonurl:' not in content.lower():
+            quoted = re.findall(r'"([^"]+)"', content)
+            keywords.extend(quoted)
+            remaining = re.sub(r'"[^"]+"', '', content)
+            for part in remaining.split(','):
+                part = part.strip()
+                if part:
+                    keywords.append(part)
+            return keywords
 
-    # Check for quoted phrase
-    quoted_match = re.search(r'"([^"]+)"', text)
+    # Check for quoted phrase at the start
+    quoted_match = re.match(r'^"([^"]+)"', text)
     if quoted_match:
         return [quoted_match.group(1)]
 
-    # Single word
-    parts = text.split(None, 2)
-    if len(parts) >= 2:
-        keyword = parts[1]
+    # Single word - first word after /filter is the keyword
+    parts = text.split(None, 1)
+    if parts:
+        keyword = parts[0]
         return [keyword]
 
     return []
@@ -90,21 +100,32 @@ def parse_filter_keywords(text: str) -> list:
 
 def get_response_text(text: str, keywords: list) -> str:
     """Extract response text from command"""
+    # Remove /filter command
+    if text.startswith('/filter'):
+        text = text[7:].strip()
+
+    if not text:
+        return ""
+
+    # Check if starts with keyword group parentheses (not buttonurl)
+    paren_match = re.match(r'^\(([^)]+)\)\s*', text)
+    if paren_match and 'buttonurl:' not in paren_match.group(1).lower():
+        # Remove the keyword group
+        text = text[paren_match.end():].strip()
+        return text
+
+    # Check if starts with quoted keyword
+    quoted_match = re.match(r'^"[^"]+"\s*', text)
+    if quoted_match:
+        text = text[quoted_match.end():].strip()
+        return text
+
+    # Single word keyword - remove first word
     parts = text.split(None, 1)
-    if len(parts) < 2:
-        return ""
+    if len(parts) >= 2:
+        return parts[1]
 
-    remaining = parts[1]
-    remaining = re.sub(r'\([^)]+\)\s*', '', remaining)
-    remaining = re.sub(r'"[^"]+"\s*', '', remaining)
-
-    if not re.search(r'[\(\"]', parts[1]):
-        parts2 = remaining.split(None, 1)
-        if len(parts2) >= 2:
-            return parts2[1]
-        return ""
-
-    return remaining.strip()
+    return ""
 
 
 def extract_media_info(message: Message) -> tuple:
