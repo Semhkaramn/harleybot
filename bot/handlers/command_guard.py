@@ -22,26 +22,22 @@ def is_allowed_group(chat_id: int) -> bool:
     return chat_id == ALLOWED_GROUP_ID
 
 
-# This middleware checks all messages
-@router.message(F.chat.type.in_(["group", "supergroup"]))
+# This middleware checks bot commands only
+@router.message(F.chat.type.in_(["group", "supergroup"]), F.text.startswith("/"))
 async def command_guard(message: Message, bot: Bot):
     """
-    Intercept all text messages in groups.
+    Intercept bot commands in groups.
     If it's a bot command from a non-admin:
     - Delete the message silently
+
+    Note: This handler only processes commands (starts with /)
+    and does NOT block other handlers from running.
     """
-    if not message.text:
-        return
-
     text = message.text.strip()
-
-    # Only check messages starting with /
-    if not text.startswith('/'):
-        return
 
     # Check if it's one of our bot commands
     if not is_bot_command(text):
-        return
+        return  # Not our command, let it pass
 
     chat_id = message.chat.id
     user_id = message.from_user.id
@@ -53,13 +49,14 @@ async def command_guard(message: Message, bot: Bot):
             await message.delete()
         except:
             pass
+        # Don't block - let other handlers decide
         return
 
     # Check if user is admin
     user_is_admin = await is_admin(bot, chat_id, user_id)
 
     if user_is_admin:
-        # Admin can use commands
+        # Admin can use commands - let the actual command handler process it
         return
 
     # Non-admin trying to use a bot command
