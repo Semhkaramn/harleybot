@@ -69,12 +69,12 @@ def parse_filter_keywords(text: str) -> list:
         return []
 
     # Check for multiple keywords with parentheses at the START only
-    # Must not be buttonurl or other special parentheses
+    # Must not be a button URL (http://, https://, tg://)
     paren_match = re.match(r'^\(([^)]+)\)', text)
     if paren_match:
         content = paren_match.group(1)
-        # Make sure it's not buttonurl
-        if 'buttonurl:' not in content.lower():
+        # Make sure it's not a button URL
+        if not re.search(r'https?://|tg://|buttonurl:', content.lower()):
             quoted = re.findall(r'"([^"]+)"', content)
             keywords.extend(quoted)
             remaining = re.sub(r'"[^"]+"', '', content)
@@ -107,9 +107,9 @@ def get_response_text(text: str, keywords: list) -> str:
     if not text:
         return ""
 
-    # Check if starts with keyword group parentheses (not buttonurl)
+    # Check if starts with keyword group parentheses (not button URL)
     paren_match = re.match(r'^\(([^)]+)\)\s*', text)
-    if paren_match and 'buttonurl:' not in paren_match.group(1).lower():
+    if paren_match and not re.search(r'https?://|tg://|buttonurl:', paren_match.group(1).lower()):
         # Remove the keyword group
         text = text[paren_match.end():].strip()
         return text
@@ -222,7 +222,11 @@ async def filter_command(message: Message, bot: Bot):
             "**Coklu kelime:**\n"
             '`/filter "nasilsin" Iyiyim sen?`\n\n'
             "**Medya ile yanit:**\n"
-            "Bir sticker/resme yanit vererek `/filter kelime`"
+            "Bir sticker/resme yanit vererek `/filter kelime`\n\n"
+            "**Butonlu yanit:**\n"
+            "`/filter site Mesaj [Buton](https://link.com)`\n\n"
+            "**Yan yana buton (:same):**\n"
+            "`[Buton1](https://link1.com) [Buton2](https://link2.com:same)`"
         )
         return
 
