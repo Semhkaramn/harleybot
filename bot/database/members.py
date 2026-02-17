@@ -11,19 +11,27 @@ async def save_member(chat_id: int, user_id: int, username: str = None, first_na
     """, (chat_id, user_id, username, first_name))
 
 
-async def save_members_bulk(chat_id: int, members: list):
-    """Save multiple members at once"""
+async def save_members_bulk(chat_id: int, members: list, replace_all: bool = False):
+    """Save multiple members at once
+
+    Args:
+        chat_id: Chat ID
+        members: List of member dictionaries
+        replace_all: If True, delete existing members first (use with caution)
+    """
     db = await get_db()
 
-    # Delete old members first
-    await db.execute("DELETE FROM members WHERE chat_id = ?", (chat_id,))
+    # Only delete if explicitly requested AND we have new members to add
+    if replace_all and members:
+        await db.execute("DELETE FROM members WHERE chat_id = ?", (chat_id,))
 
-    # Insert new members
+    # Insert or update members
     for member in members:
         await db.execute("""
             INSERT INTO members (chat_id, user_id, username, first_name)
             VALUES (?, ?, ?, ?)
-            ON CONFLICT (chat_id, user_id) DO NOTHING
+            ON CONFLICT (chat_id, user_id)
+            DO UPDATE SET username = excluded.username, first_name = excluded.first_name
         """, (chat_id, member['user_id'], member.get('username'), member.get('first_name')))
 
     await db.commit()
