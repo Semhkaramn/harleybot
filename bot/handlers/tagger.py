@@ -1,7 +1,10 @@
 import asyncio
-from pyrogram import Client, filters
-from pyrogram.types import Message
-from pyrogram.errors import FloodWait, UserNotParticipant
+import random
+from aiogram import Router, Bot, F
+from aiogram.types import Message
+from aiogram.filters import Command
+from aiogram.exceptions import TelegramRetryAfter, TelegramBadRequest
+
 from bot.database.members import (
     save_members_bulk, get_all_members, get_members_count,
     get_members_batch, delete_all_members
@@ -10,6 +13,9 @@ from bot.database.settings import (
     start_tag_session, get_tag_session, update_tag_index, stop_tag_session
 )
 from bot.utils.helpers import is_admin, get_user_mention
+from bot.config import ALLOWED_GROUP_ID
+
+router = Router()
 
 # Random questions for naber tagger
 RANDOM_QUESTIONS = [
@@ -25,13 +31,29 @@ RANDOM_QUESTIONS = [
     "Iyi aksamlar!",
 ]
 
+
+def is_allowed_group(chat_id: int) -> bool:
+    """Check if bot is allowed to operate in this group"""
+    if ALLOWED_GROUP_ID is None:
+        return True  # No restriction if not configured
+    return chat_id == ALLOWED_GROUP_ID
+
+
 # /kaydet - Save all group members to database
-@Client.on_message(filters.command("kaydet") & filters.group)
-async def save_all_members(client: Client, message: Message):
+@router.message(Command("kaydet"))
+async def save_all_members(message: Message, bot: Bot):
+    if message.chat.type == "private":
+        await message.reply("Bu komut sadece gruplarda calisir!")
+        return
+
     chat_id = message.chat.id
     user_id = message.from_user.id
 
-    if not await is_admin(client, chat_id, user_id):
+    # Check if allowed group
+    if not is_allowed_group(chat_id):
+        return
+
+    if not await is_admin(bot, chat_id, user_id):
         try:
             await message.delete()
         except:
@@ -42,32 +64,52 @@ async def save_all_members(client: Client, message: Message):
 
     members_list = []
     try:
-        async for member in client.get_chat_members(chat_id):
+        # In aiogram, we need to use get_chat_administrators and iterate
+        # Note: Bot API doesn't support getting all members, only admins
+        # We'll save admins and track members as they send messages
+        admins = await bot.get_chat_administrators(chat_id)
+        for member in admins:
             if member.user and not member.user.is_bot:
                 members_list.append({
                     'user_id': member.user.id,
                     'username': member.user.username,
                     'first_name': member.user.first_name
                 })
-    except FloodWait as e:
-        await asyncio.sleep(e.value)
+
+        # Note: For full member list, you need Telegram Premium API or userbot
+        # This implementation saves admins only via Bot API
+        # Members will be added as they interact with the bot
+
+    except TelegramRetryAfter as e:
+        await asyncio.sleep(e.retry_after)
     except Exception as e:
-        await status_msg.edit(f"Hata olustu: {str(e)}")
+        await status_msg.edit_text(f"Hata olustu: {str(e)}")
         return
 
     if members_list:
         await save_members_bulk(chat_id, members_list)
-        await status_msg.edit(f"**{len(members_list)}** uye kaydedildi!")
+        await status_msg.edit_text(
+            f"**{len(members_list)}** admin kaydedildi!\n\n"
+            "**Not:** Bot API ile sadece adminler alinabilir.\n"
+            "Diger uyeler mesaj attikca otomatik kaydedilir."
+        )
     else:
-        await status_msg.edit("Kayit edilecek uye bulunamadi.")
+        await status_msg.edit_text("Kayit edilecek uye bulunamadi.")
+
 
 # /üyeler - Show saved members count
-@Client.on_message(filters.command(["uyeler", "üyeler"]) & filters.group)
-async def show_members_count(client: Client, message: Message):
+@router.message(Command(commands=["uyeler", "üyeler"]))
+async def show_members_count(message: Message, bot: Bot):
+    if message.chat.type == "private":
+        return
+
     chat_id = message.chat.id
     user_id = message.from_user.id
 
-    if not await is_admin(client, chat_id, user_id):
+    if not is_allowed_group(chat_id):
+        return
+
+    if not await is_admin(bot, chat_id, user_id):
         try:
             await message.delete()
         except:
@@ -77,13 +119,20 @@ async def show_members_count(client: Client, message: Message):
     count = await get_members_count(chat_id)
     await message.reply(f"Kayitli uye sayisi: **{count}**")
 
+
 # /temizle - Delete all saved members
-@Client.on_message(filters.command("temizle") & filters.group)
-async def clear_members(client: Client, message: Message):
+@router.message(Command("temizle"))
+async def clear_members(message: Message, bot: Bot):
+    if message.chat.type == "private":
+        return
+
     chat_id = message.chat.id
     user_id = message.from_user.id
 
-    if not await is_admin(client, chat_id, user_id):
+    if not is_allowed_group(chat_id):
+        return
+
+    if not await is_admin(bot, chat_id, user_id):
         try:
             await message.delete()
         except:
@@ -93,13 +142,20 @@ async def clear_members(client: Client, message: Message):
     count = await delete_all_members(chat_id)
     await message.reply(f"**{count}** uye kaydi silindi.")
 
+
 # /naber - Tag all members with random questions (one message per person)
-@Client.on_message(filters.command("naber") & filters.group)
-async def naber_tag(client: Client, message: Message):
+@router.message(Command("naber"))
+async def naber_tag(message: Message, bot: Bot):
+    if message.chat.type == "private":
+        return
+
     chat_id = message.chat.id
     user_id = message.from_user.id
 
-    if not await is_admin(client, chat_id, user_id):
+    if not is_allowed_group(chat_id):
+        return
+
+    if not await is_admin(bot, chat_id, user_id):
         try:
             await message.delete()
         except:
@@ -114,34 +170,41 @@ async def naber_tag(client: Client, message: Message):
 
     await message.reply(f"**{len(members)}** kisi etiketlenecek...")
 
-    import random
     for member in members:
         try:
             mention = get_user_mention(member['user_id'], member.get('username'), member.get('first_name'))
             question = random.choice(RANDOM_QUESTIONS)
-            await client.send_message(chat_id, f"{mention} {question}")
+            await bot.send_message(chat_id, f"{mention} {question}")
             await asyncio.sleep(1)  # Anti-flood
-        except FloodWait as e:
-            await asyncio.sleep(e.value)
+        except TelegramRetryAfter as e:
+            await asyncio.sleep(e.retry_after)
         except Exception:
             continue
 
-    await client.send_message(chat_id, "Etiketleme tamamlandi!")
+    await bot.send_message(chat_id, "Etiketleme tamamlandi!")
+
 
 # /etiket <mesaj> - Start tagging 5 people at a time with custom message
-@Client.on_message(filters.command("etiket") & filters.group)
-async def start_tagging(client: Client, message: Message):
+@router.message(Command("etiket"))
+async def start_tagging(message: Message, bot: Bot):
+    if message.chat.type == "private":
+        return
+
     chat_id = message.chat.id
     user_id = message.from_user.id
 
-    if not await is_admin(client, chat_id, user_id):
+    if not is_allowed_group(chat_id):
+        return
+
+    if not await is_admin(bot, chat_id, user_id):
         try:
             await message.delete()
         except:
             pass
         return
 
-    args = message.text.split(None, 1)
+    text = message.text or ""
+    args = text.split(None, 1)
 
     if len(args) < 2:
         await message.reply(
@@ -173,7 +236,7 @@ async def start_tagging(client: Client, message: Message):
         # Check if session is still active
         session = await get_tag_session(chat_id)
         if not session or not session['is_active']:
-            await client.send_message(chat_id, "Etiketleme durduruldu.")
+            await bot.send_message(chat_id, "Etiketleme durduruldu.")
             return
 
         batch = members[index:index + 5]
@@ -183,27 +246,34 @@ async def start_tagging(client: Client, message: Message):
             mentions.append(mention)
 
         try:
-            text = f"{custom_message}\n\n" + " ".join(mentions)
-            await client.send_message(chat_id, text)
+            tag_text = f"{custom_message}\n\n" + " ".join(mentions)
+            await bot.send_message(chat_id, tag_text)
             index += 5
             await update_tag_index(chat_id, index)
             await asyncio.sleep(3)  # Anti-flood
-        except FloodWait as e:
-            await asyncio.sleep(e.value)
+        except TelegramRetryAfter as e:
+            await asyncio.sleep(e.retry_after)
         except Exception as e:
             print(f"Tag error: {e}")
             continue
 
     await stop_tag_session(chat_id)
-    await client.send_message(chat_id, f"Etiketleme tamamlandi! **{total}** kisi etiketlendi.")
+    await bot.send_message(chat_id, f"Etiketleme tamamlandi! **{total}** kisi etiketlendi.")
+
 
 # /durdur - Stop ongoing tagging
-@Client.on_message(filters.command("durdur") & filters.group)
-async def stop_tagging(client: Client, message: Message):
+@router.message(Command("durdur"))
+async def stop_tagging(message: Message, bot: Bot):
+    if message.chat.type == "private":
+        return
+
     chat_id = message.chat.id
     user_id = message.from_user.id
 
-    if not await is_admin(client, chat_id, user_id):
+    if not is_allowed_group(chat_id):
+        return
+
+    if not await is_admin(bot, chat_id, user_id):
         try:
             await message.delete()
         except:
@@ -217,20 +287,28 @@ async def stop_tagging(client: Client, message: Message):
     else:
         await message.reply("Aktif etiketleme islemi yok.")
 
+
 # /herkes <mesaj> - Tag everyone at once
-@Client.on_message(filters.command("herkes") & filters.group)
-async def tag_everyone(client: Client, message: Message):
+@router.message(Command("herkes"))
+async def tag_everyone(message: Message, bot: Bot):
+    if message.chat.type == "private":
+        return
+
     chat_id = message.chat.id
     user_id = message.from_user.id
 
-    if not await is_admin(client, chat_id, user_id):
+    if not is_allowed_group(chat_id):
+        return
+
+    if not await is_admin(bot, chat_id, user_id):
         try:
             await message.delete()
         except:
             pass
         return
 
-    args = message.text.split(None, 1)
+    text = message.text or ""
+    args = text.split(None, 1)
     custom_message = args[1] if len(args) > 1 else "Duyuru!"
 
     members = await get_all_members(chat_id)
@@ -249,12 +327,38 @@ async def tag_everyone(client: Client, message: Message):
 
         try:
             if i == 0:
-                text = f"**{custom_message}**\n\n" + " ".join(mentions)
+                tag_text = f"**{custom_message}**\n\n" + " ".join(mentions)
             else:
-                text = " ".join(mentions)
-            await client.send_message(chat_id, text)
+                tag_text = " ".join(mentions)
+            await bot.send_message(chat_id, tag_text)
             await asyncio.sleep(2)
-        except FloodWait as e:
-            await asyncio.sleep(e.value)
+        except TelegramRetryAfter as e:
+            await asyncio.sleep(e.retry_after)
         except Exception:
             continue
+
+
+# Auto-save member when they send a message
+@router.message(F.chat.type.in_(["group", "supergroup"]))
+async def auto_save_member(message: Message, bot: Bot):
+    """Automatically save member info when they send a message"""
+    if not message.from_user or message.from_user.is_bot:
+        return
+
+    chat_id = message.chat.id
+
+    if not is_allowed_group(chat_id):
+        return
+
+    # Import here to avoid circular import
+    from bot.database.members import save_member
+
+    try:
+        await save_member(
+            chat_id=chat_id,
+            user_id=message.from_user.id,
+            username=message.from_user.username,
+            first_name=message.from_user.first_name
+        )
+    except Exception:
+        pass  # Silently ignore errors
