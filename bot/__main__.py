@@ -4,7 +4,7 @@ from bot.config import API_ID, API_HASH, BOT_TOKEN, BOT_NAME
 from bot.database.connection import init_db, close_db
 
 # Import all handlers
-from bot.handlers import basic, filters, tagger, admin
+from bot.handlers import command_guard, basic, filters, tagger, admin
 
 print(f"""
 ╔══════════════════════════════════════╗
