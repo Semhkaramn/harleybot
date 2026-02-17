@@ -14,15 +14,15 @@ from bot.utils.helpers import is_admin, get_user_mention
 # Random questions for naber tagger
 RANDOM_QUESTIONS = [
     "Naber?",
-    "Nasılsın?",
-    "Ne yapıyorsun?",
-    "İyi misin?",
+    "Nasilsin?",
+    "Ne yapiyorsun?",
+    "Iyi misin?",
     "Selam!",
-    "Hoş geldin!",
-    "Burada mısın?",
+    "Hos geldin!",
+    "Burada misin?",
     "Aktif misin?",
-    "Günaydın!",
-    "İyi akşamlar!",
+    "Gunaydin!",
+    "Iyi aksamlar!",
 ]
 
 # /kaydet - Save all group members to database
@@ -32,10 +32,13 @@ async def save_all_members(client: Client, message: Message):
     user_id = message.from_user.id
 
     if not await is_admin(client, chat_id, user_id):
-        await message.reply("❌ Bu komutu sadece adminler kullanabilir!")
+        try:
+            await message.delete()
+        except:
+            pass
         return
 
-    status_msg = await message.reply("⏳ Üyeler kaydediliyor...")
+    status_msg = await message.reply("Uyeler kaydediliyor...")
 
     members_list = []
     try:
@@ -49,21 +52,30 @@ async def save_all_members(client: Client, message: Message):
     except FloodWait as e:
         await asyncio.sleep(e.value)
     except Exception as e:
-        await status_msg.edit(f"❌ Hata oluştu: {str(e)}")
+        await status_msg.edit(f"Hata olustu: {str(e)}")
         return
 
     if members_list:
         await save_members_bulk(chat_id, members_list)
-        await status_msg.edit(f"✅ **{len(members_list)}** üye kaydedildi!")
+        await status_msg.edit(f"**{len(members_list)}** uye kaydedildi!")
     else:
-        await status_msg.edit("❌ Kayıt edilecek üye bulunamadı.")
+        await status_msg.edit("Kayit edilecek uye bulunamadi.")
 
 # /üyeler - Show saved members count
-@Client.on_message(filters.command(["üyeler", "uyeler"]) & filters.group)
+@Client.on_message(filters.command(["uyeler", "üyeler"]) & filters.group)
 async def show_members_count(client: Client, message: Message):
     chat_id = message.chat.id
+    user_id = message.from_user.id
+
+    if not await is_admin(client, chat_id, user_id):
+        try:
+            await message.delete()
+        except:
+            pass
+        return
+
     count = await get_members_count(chat_id)
-    await message.reply(f"👥 Kayıtlı üye sayısı: **{count}**")
+    await message.reply(f"Kayitli uye sayisi: **{count}**")
 
 # /temizle - Delete all saved members
 @Client.on_message(filters.command("temizle") & filters.group)
@@ -72,11 +84,14 @@ async def clear_members(client: Client, message: Message):
     user_id = message.from_user.id
 
     if not await is_admin(client, chat_id, user_id):
-        await message.reply("❌ Bu komutu sadece adminler kullanabilir!")
+        try:
+            await message.delete()
+        except:
+            pass
         return
 
     count = await delete_all_members(chat_id)
-    await message.reply(f"✅ **{count}** üye kaydı silindi.")
+    await message.reply(f"**{count}** uye kaydi silindi.")
 
 # /naber - Tag all members with random questions (one message per person)
 @Client.on_message(filters.command("naber") & filters.group)
@@ -85,16 +100,19 @@ async def naber_tag(client: Client, message: Message):
     user_id = message.from_user.id
 
     if not await is_admin(client, chat_id, user_id):
-        await message.reply("❌ Bu komutu sadece adminler kullanabilir!")
+        try:
+            await message.delete()
+        except:
+            pass
         return
 
     members = await get_all_members(chat_id)
 
     if not members:
-        await message.reply("❌ Kayıtlı üye yok! Önce `/kaydet` komutunu kullanın.")
+        await message.reply("Kayitli uye yok! Once `/kaydet` komutunu kullanin.")
         return
 
-    await message.reply(f"🏷️ **{len(members)}** kişi etiketlenecek...")
+    await message.reply(f"**{len(members)}** kisi etiketlenecek...")
 
     import random
     for member in members:
@@ -108,7 +126,7 @@ async def naber_tag(client: Client, message: Message):
         except Exception:
             continue
 
-    await client.send_message(chat_id, "✅ Etiketleme tamamlandı!")
+    await client.send_message(chat_id, "Etiketleme tamamlandi!")
 
 # /etiket <mesaj> - Start tagging 5 people at a time with custom message
 @Client.on_message(filters.command("etiket") & filters.group)
@@ -117,18 +135,21 @@ async def start_tagging(client: Client, message: Message):
     user_id = message.from_user.id
 
     if not await is_admin(client, chat_id, user_id):
-        await message.reply("❌ Bu komutu sadece adminler kullanabilir!")
+        try:
+            await message.delete()
+        except:
+            pass
         return
 
     args = message.text.split(None, 1)
 
     if len(args) < 2:
         await message.reply(
-            "**🏷️ Etiket Kullanımı:**\n\n"
+            "**Etiket Kullanimi:**\n\n"
             "`/etiket <mesaj>`\n\n"
-            "**Örnek:**\n"
-            "`/etiket Bugün saat 20:00'de etkinlik var!`\n\n"
-            "Durdurmak için: `/durdur`"
+            "**Ornek:**\n"
+            "`/etiket Bugun saat 20:00'de etkinlik var!`\n\n"
+            "Durdurmak icin: `/durdur`"
         )
         return
 
@@ -136,13 +157,13 @@ async def start_tagging(client: Client, message: Message):
 
     members = await get_all_members(chat_id)
     if not members:
-        await message.reply("❌ Kayıtlı üye yok! Önce `/kaydet` komutunu kullanın.")
+        await message.reply("Kayitli uye yok! Once `/kaydet` komutunu kullanin.")
         return
 
     # Start tag session
     await start_tag_session(chat_id, custom_message, user_id)
 
-    await message.reply(f"🏷️ Etiketleme başladı! **{len(members)}** kişi etiketlenecek (5'er 5'er).\nDurdurmak için: `/durdur`")
+    await message.reply(f"Etiketleme basladi! **{len(members)}** kisi etiketlenecek (5'er 5'er).\nDurdurmak icin: `/durdur`")
 
     # Tag 5 people at a time
     total = len(members)
@@ -152,7 +173,7 @@ async def start_tagging(client: Client, message: Message):
         # Check if session is still active
         session = await get_tag_session(chat_id)
         if not session or not session['is_active']:
-            await client.send_message(chat_id, "⏹️ Etiketleme durduruldu.")
+            await client.send_message(chat_id, "Etiketleme durduruldu.")
             return
 
         batch = members[index:index + 5]
@@ -162,7 +183,7 @@ async def start_tagging(client: Client, message: Message):
             mentions.append(mention)
 
         try:
-            text = f"📢 {custom_message}\n\n" + " ".join(mentions)
+            text = f"{custom_message}\n\n" + " ".join(mentions)
             await client.send_message(chat_id, text)
             index += 5
             await update_tag_index(chat_id, index)
@@ -174,7 +195,7 @@ async def start_tagging(client: Client, message: Message):
             continue
 
     await stop_tag_session(chat_id)
-    await client.send_message(chat_id, f"✅ Etiketleme tamamlandı! **{total}** kişi etiketlendi.")
+    await client.send_message(chat_id, f"Etiketleme tamamlandi! **{total}** kisi etiketlendi.")
 
 # /durdur - Stop ongoing tagging
 @Client.on_message(filters.command("durdur") & filters.group)
@@ -183,15 +204,18 @@ async def stop_tagging(client: Client, message: Message):
     user_id = message.from_user.id
 
     if not await is_admin(client, chat_id, user_id):
-        await message.reply("❌ Bu komutu sadece adminler kullanabilir!")
+        try:
+            await message.delete()
+        except:
+            pass
         return
 
     session = await get_tag_session(chat_id)
     if session and session['is_active']:
         await stop_tag_session(chat_id)
-        await message.reply("⏹️ Etiketleme durduruldu!")
+        await message.reply("Etiketleme durduruldu!")
     else:
-        await message.reply("❌ Aktif etiketleme işlemi yok.")
+        await message.reply("Aktif etiketleme islemi yok.")
 
 # /herkes <mesaj> - Tag everyone at once
 @Client.on_message(filters.command("herkes") & filters.group)
@@ -200,15 +224,18 @@ async def tag_everyone(client: Client, message: Message):
     user_id = message.from_user.id
 
     if not await is_admin(client, chat_id, user_id):
-        await message.reply("❌ Bu komutu sadece adminler kullanabilir!")
+        try:
+            await message.delete()
+        except:
+            pass
         return
 
     args = message.text.split(None, 1)
-    custom_message = args[1] if len(args) > 1 else "📢 Duyuru!"
+    custom_message = args[1] if len(args) > 1 else "Duyuru!"
 
     members = await get_all_members(chat_id)
     if not members:
-        await message.reply("❌ Kayıtlı üye yok! Önce `/kaydet` komutunu kullanın.")
+        await message.reply("Kayitli uye yok! Once `/kaydet` komutunu kullanin.")
         return
 
     # Create mention list in chunks of 50 (Telegram limit)
@@ -222,7 +249,7 @@ async def tag_everyone(client: Client, message: Message):
 
         try:
             if i == 0:
-                text = f"📢 **{custom_message}**\n\n" + " ".join(mentions)
+                text = f"**{custom_message}**\n\n" + " ".join(mentions)
             else:
                 text = " ".join(mentions)
             await client.send_message(chat_id, text)
