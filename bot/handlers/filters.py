@@ -297,13 +297,10 @@ async def stop_all_filters(message: Message, bot: Bot):
 
 
 # Filter checker - responds to messages matching filters
-@router.message(F.chat.type.in_(["group", "supergroup"]))
+# Only process non-command text messages
+@router.message(F.chat.type.in_(["group", "supergroup"]), F.text, ~F.text.startswith("/"))
 async def check_filter_message(message: Message, bot: Bot):
     if not message.text:
-        return
-
-    # Skip commands
-    if message.text.startswith('/'):
         return
 
     chat_id = message.chat.id
@@ -386,5 +383,5 @@ async def check_filter_message(message: Message, bot: Bot):
                 await message.reply_video_note(file_id)
         elif response:
             await message.reply(response, reply_markup=keyboard)
-    except Exception as e:
-        print(f"Filter response error: {e}")
+    except Exception:
+        pass  # Filter response failed silently
