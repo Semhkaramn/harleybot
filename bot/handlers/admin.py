@@ -8,14 +8,27 @@ from aiogram.exceptions import TelegramBadRequest
 
 from bot.database.settings import set_chat_locked
 from bot.utils.helpers import is_admin, can_restrict, get_target_user, get_user_link, extract_time, can_delete
+from bot.config import ALLOWED_GROUP_ID
 
 router = Router()
+
+
+def is_allowed_group(chat_id: int) -> bool:
+    """Check if bot is allowed to operate in this group"""
+    if ALLOWED_GROUP_ID is None:
+        return True  # No restriction if not configured
+    return chat_id == ALLOWED_GROUP_ID
+
 
 # Helper function to check admin and delete if not
 async def check_admin_silent(bot: Bot, message: Message) -> bool:
     """Check if user is admin, silently delete if not"""
     chat_id = message.chat.id
     user_id = message.from_user.id
+
+    # Check if allowed group first
+    if not is_allowed_group(chat_id):
+        return False
 
     if not await can_restrict(bot, chat_id, user_id):
         try:
