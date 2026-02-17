@@ -43,16 +43,41 @@ async def can_delete(bot: Bot, chat_id: int, user_id: int) -> bool:
     except Exception:
         return False
 
-def get_user_mention(user_id: int, username: str = None, first_name: str = None) -> str:
-    """Create a user mention"""
+def get_user_mention(user_id: int, username: str = None, first_name: str = None, use_html: bool = True) -> str:
+    """Create a user mention
+
+    Args:
+        user_id: User's Telegram ID
+        username: User's username (optional)
+        first_name: User's first name (optional)
+        use_html: If True, returns HTML format mention (more reliable), otherwise Markdown
+
+    Returns:
+        A mention string that will notify the user when sent
+    """
+    # If username exists, use @username format (works in both HTML and Markdown)
     if username:
         return f"@{username}"
-    # Use first_name if available and not empty, otherwise create a user link with ID
+
+    # For users without username, we must use a text link with tg://user?id=
+    # This requires HTML or Markdown formatting
+
+    # Determine the display name
     if first_name and first_name.strip():
         name = first_name.strip()
     else:
-        name = f"Uye_{user_id}"
-    return f"[{name}](tg://user?id={user_id})"
+        # Fallback: just show the name as "Kullanıcı" but link to their profile
+        name = "Kullanıcı"
+
+    # HTML format is more reliable for mentions
+    if use_html:
+        # Escape HTML special characters in the name
+        name = name.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+        return f'<a href="tg://user?id={user_id}">{name}</a>'
+    else:
+        # Markdown format - escape special characters
+        name = name.replace('[', '\\[').replace(']', '\\]').replace('(', '\\(').replace(')', '\\)')
+        return f"[{name}](tg://user?id={user_id})"
 
 def get_user_link(user_id: int, first_name: str = None) -> str:
     """Create a clickable user link"""
@@ -306,7 +331,7 @@ BOT_COMMANDS = [
     'ban', 'tban', 'dban', 'sban', 'unban',
     'kick', 'dkick', 'skick',
     'mute', 'tmute', 'dmute', 'smute', 'unmute',
-    'lock', 'unlock', 'del', 'purge', 'pin', 'unpin', 'admins',
+    'del', 'purge', 'pin', 'unpin', 'admins',
     'setadminonly', 'adminonly'
 ]
 
