@@ -100,7 +100,14 @@ async def delete_all_filters(chat_id: int) -> int:
 
 
 async def check_filters(chat_id: int, text: str) -> dict | None:
-    """Check if message matches any filter and return full filter data"""
+    """Check if message matches any filter and return full filter data
+
+    Filter matching logic:
+    - prefix: filter - matches if text starts with the prefix
+    - exact: filter - matches if text exactly equals the keyword
+    - Regular filter - matches if keyword appears ANYWHERE in the text (case-insensitive)
+      For example: "merhaba" will match "selam merhaba nasılsın"
+    """
     rows = await fetch_all("""
         SELECT keyword, response, media_type, file_id, buttons, caption, filter_type
         FROM filters
@@ -123,19 +130,13 @@ async def check_filters(chat_id: int, text: str) -> dict | None:
             exact = keyword[6:]  # Remove 'exact:'
             matched = text_lower == exact.lower()
         else:
-            # Regular filter - improved matching for special characters
+            # Regular filter - keyword should appear anywhere in the text
+            # This allows "merhaba" to match "selam merhaba nasılsın"
             keyword_lower = keyword.lower()
 
-            # Check if keyword starts with special character (!, @, #, $, etc.)
-            if keyword_lower and not keyword_lower[0].isalnum():
-                # For special character keywords, check if text contains or equals keyword
-                # Split text into words and check each
-                words = text_lower.split()
-                matched = keyword_lower in words or text_lower == keyword_lower
-            else:
-                # Standard word boundary matching for normal keywords
-                pattern = r'\b' + re.escape(keyword_lower) + r'\b'
-                matched = bool(re.search(pattern, text_lower, re.IGNORECASE))
+            # Check if keyword contains the text (for any position matching)
+            # Use simple substring matching - keyword anywhere in the message
+            matched = keyword_lower in text_lower
 
         if matched:
             result = dict(row)
