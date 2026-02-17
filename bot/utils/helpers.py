@@ -56,11 +56,15 @@ def get_user_link(user_id: int, first_name: str = None) -> str:
     return f"[{name}](tg://user?id={user_id})"
 
 async def get_target_user(bot: Bot, message: Message) -> tuple:
-    """Get target user from reply or mention"""
-    user_id = None
-    first_name = None
+    """Get target user from reply or mention
 
-    # Check if replying to a message
+    Returns:
+        tuple: (user_id, first_name/username)
+        - If replying to message: returns (user_id, first_name)
+        - If user_id provided: returns (user_id, first_name)
+        - If @username provided: tries to resolve, returns (user_id, first_name) or (None, @username)
+    """
+    # Check if replying to a message (most reliable)
     if message.reply_to_message and message.reply_to_message.from_user:
         user = message.reply_to_message.from_user
         return user.id, user.first_name
@@ -68,18 +72,33 @@ async def get_target_user(bot: Bot, message: Message) -> tuple:
     # Check if user ID or username provided in command
     text = message.text or message.caption or ""
     args = text.split()[1:] if text else []
+
     if args:
-        target = args[0]
-        try:
-            if target.startswith("@"):
-                # Can't get user by username in aiogram without cache
-                # Return the username for display
-                return None, target
-            elif target.isdigit():
-                user = await bot.get_chat(int(target))
-                return user.id, user.first_name
-        except Exception:
-            pass
+        target = args[0].strip()
+
+        # Handle @username
+        if target.startswith("@"):
+            username = target[1:]  # Remove @ prefix
+            try:
+                # Try to get user info via username
+                # Note: This only works if user has interacted with the bot
+                chat = await bot.get_chat(f"@{username}")
+                if chat:
+                    return chat.id, chat.first_name or username
+            except Exception:
+                pass
+            # Return username for display purposes, ID is None
+            return None, target
+
+        # Handle user ID (can be negative for channels/groups)
+        if target.lstrip('-').isdigit():
+            try:
+                user_id = int(target)
+                chat = await bot.get_chat(user_id)
+                return chat.id, getattr(chat, 'first_name', None) or getattr(chat, 'title', 'Kullanici')
+            except Exception:
+                # Return the ID even if we can't get details
+                return int(target), "Kullanici"
 
     return None, None
 
