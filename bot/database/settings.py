@@ -1,3 +1,4 @@
+import json
 from bot.database.connection import get_db, fetch_all, fetch_one, execute
 
 async def get_chat_settings(chat_id: int) -> dict:
@@ -32,6 +33,37 @@ async def is_chat_locked(chat_id: int) -> bool:
     """Check if chat is locked"""
     settings = await get_chat_settings(chat_id)
     return bool(settings.get('chat_locked', 0))
+
+async def save_previous_permissions(chat_id: int, permissions: dict):
+    """Save previous permissions before locking"""
+    pool = await get_db()
+    async with pool.acquire() as conn:
+        await conn.execute("""
+            INSERT INTO chat_settings (chat_id, previous_permissions)
+            VALUES ($1, $2)
+            ON CONFLICT (chat_id)
+            DO UPDATE SET previous_permissions = EXCLUDED.previous_permissions, updated_at = CURRENT_TIMESTAMP
+        """, chat_id, json.dumps(permissions))
+
+async def get_previous_permissions(chat_id: int) -> dict | None:
+    """Get saved previous permissions"""
+    settings = await get_chat_settings(chat_id)
+    perms_json = settings.get('previous_permissions')
+    if perms_json:
+        try:
+            return json.loads(perms_json)
+        except:
+            return None
+    return None
+
+async def clear_previous_permissions(chat_id: int):
+    """Clear saved previous permissions after unlocking"""
+    pool = await get_db()
+    async with pool.acquire() as conn:
+        await conn.execute("""
+            UPDATE chat_settings SET previous_permissions = NULL
+            WHERE chat_id = $1
+        """, chat_id)
 
 async def set_welcome_message(chat_id: int, message: str):
     """Set welcome message"""
