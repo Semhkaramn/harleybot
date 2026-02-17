@@ -20,5 +20,5 @@ _allowed_group = os.getenv("ALLOWED_GROUP_ID", "").strip()
 ALLOWED_GROUP_ID = int(_allowed_group) if _allowed_group and _allowed_group.lstrip('-').isdigit() else None
 
 # Bot settings
-BOT_NAME = "HarleyBot"
+BOT_NAME = "MsHarleyBot"
 BOT_VERSION = "2.0.0"
