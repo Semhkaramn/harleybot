@@ -19,16 +19,16 @@ async def add_filter(
 
     await execute("""
         INSERT INTO filters (chat_id, keyword, response, media_type, file_id, buttons, caption, filter_type)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         ON CONFLICT (chat_id, keyword)
         DO UPDATE SET
-            response = excluded.response,
-            media_type = excluded.media_type,
-            file_id = excluded.file_id,
-            buttons = excluded.buttons,
-            caption = excluded.caption,
-            filter_type = excluded.filter_type
-    """, (chat_id, keyword.lower(), response, media_type, file_id, buttons_json, caption, filter_type))
+            response = EXCLUDED.response,
+            media_type = EXCLUDED.media_type,
+            file_id = EXCLUDED.file_id,
+            buttons = EXCLUDED.buttons,
+            caption = EXCLUDED.caption,
+            filter_type = EXCLUDED.filter_type
+    """, chat_id, keyword.lower(), response, media_type, file_id, buttons_json, caption, filter_type)
     return True
 
 
@@ -37,8 +37,8 @@ async def get_filter(chat_id: int, keyword: str) -> dict | None:
     row = await fetch_one("""
         SELECT keyword, response, media_type, file_id, buttons, caption, filter_type
         FROM filters
-        WHERE chat_id = ? AND keyword = ?
-    """, (chat_id, keyword.lower()))
+        WHERE chat_id = $1 AND keyword = $2
+    """, chat_id, keyword.lower())
 
     if not row:
         return None
@@ -58,9 +58,9 @@ async def get_all_filters(chat_id: int) -> list:
     rows = await fetch_all("""
         SELECT keyword, response, media_type, file_id, buttons, caption, filter_type
         FROM filters
-        WHERE chat_id = ?
+        WHERE chat_id = $1
         ORDER BY keyword
-    """, (chat_id,))
+    """, chat_id)
 
     result = []
     for row in rows:
@@ -78,23 +78,25 @@ async def get_all_filters(chat_id: int) -> list:
 
 async def delete_filter(chat_id: int, keyword: str) -> bool:
     """Delete a filter"""
-    db = await get_db()
-    async with db.execute("""
-        DELETE FROM filters
-        WHERE chat_id = ? AND keyword = ?
-    """, (chat_id, keyword.lower())) as cursor:
-        await db.commit()
-        return cursor.rowcount > 0
+    pool = await get_db()
+    async with pool.acquire() as conn:
+        result = await conn.execute("""
+            DELETE FROM filters
+            WHERE chat_id = $1 AND keyword = $2
+        """, chat_id, keyword.lower())
+        return result != "DELETE 0"
 
 
 async def delete_all_filters(chat_id: int) -> int:
     """Delete all filters for a chat"""
-    db = await get_db()
-    async with db.execute("""
-        DELETE FROM filters WHERE chat_id = ?
-    """, (chat_id,)) as cursor:
-        await db.commit()
-        return cursor.rowcount
+    pool = await get_db()
+    async with pool.acquire() as conn:
+        result = await conn.execute("""
+            DELETE FROM filters WHERE chat_id = $1
+        """, chat_id)
+        # Extract count from "DELETE X"
+        count = int(result.split()[-1]) if result else 0
+        return count
 
 
 async def check_filters(chat_id: int, text: str) -> dict | None:
@@ -102,8 +104,8 @@ async def check_filters(chat_id: int, text: str) -> dict | None:
     rows = await fetch_all("""
         SELECT keyword, response, media_type, file_id, buttons, caption, filter_type
         FROM filters
-        WHERE chat_id = ?
-    """, (chat_id,))
+        WHERE chat_id = $1
+    """, chat_id)
 
     text_lower = text.lower()
 
