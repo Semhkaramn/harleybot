@@ -1,58 +1,44 @@
 import re
 import random
-from pyrogram import Client
-from pyrogram.types import Message, ChatMember, InlineKeyboardMarkup, InlineKeyboardButton
-from pyrogram.enums import ChatMemberStatus
-from bot.config import OWNER_ID
+from aiogram import Bot
+from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, ChatMemberAdministrator, ChatMemberOwner
 
-async def is_admin(client: Client, chat_id: int, user_id: int) -> bool:
-    """Check if user is admin in the chat (from Telegram)"""
-    if user_id == OWNER_ID:
-        return True
-
+async def is_admin(bot: Bot, chat_id: int, user_id: int) -> bool:
+    """Check if user is admin in the chat"""
     try:
-        member = await client.get_chat_member(chat_id, user_id)
-        return member.status in [ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER]
+        member = await bot.get_chat_member(chat_id, user_id)
+        return isinstance(member, (ChatMemberAdministrator, ChatMemberOwner))
     except Exception:
         return False
 
-async def is_owner(client: Client, chat_id: int, user_id: int) -> bool:
+async def is_owner(bot: Bot, chat_id: int, user_id: int) -> bool:
     """Check if user is owner of the chat"""
-    if user_id == OWNER_ID:
-        return True
-
     try:
-        member = await client.get_chat_member(chat_id, user_id)
-        return member.status == ChatMemberStatus.OWNER
+        member = await bot.get_chat_member(chat_id, user_id)
+        return isinstance(member, ChatMemberOwner)
     except Exception:
         return False
 
-async def can_restrict(client: Client, chat_id: int, user_id: int) -> bool:
+async def can_restrict(bot: Bot, chat_id: int, user_id: int) -> bool:
     """Check if user can restrict members"""
-    if user_id == OWNER_ID:
-        return True
-
     try:
-        member = await client.get_chat_member(chat_id, user_id)
-        if member.status == ChatMemberStatus.OWNER:
+        member = await bot.get_chat_member(chat_id, user_id)
+        if isinstance(member, ChatMemberOwner):
             return True
-        if member.status == ChatMemberStatus.ADMINISTRATOR:
-            return member.privileges.can_restrict_members
+        if isinstance(member, ChatMemberAdministrator):
+            return member.can_restrict_members
         return False
     except Exception:
         return False
 
-async def can_delete(client: Client, chat_id: int, user_id: int) -> bool:
+async def can_delete(bot: Bot, chat_id: int, user_id: int) -> bool:
     """Check if user can delete messages"""
-    if user_id == OWNER_ID:
-        return True
-
     try:
-        member = await client.get_chat_member(chat_id, user_id)
-        if member.status == ChatMemberStatus.OWNER:
+        member = await bot.get_chat_member(chat_id, user_id)
+        if isinstance(member, ChatMemberOwner):
             return True
-        if member.status == ChatMemberStatus.ADMINISTRATOR:
-            return member.privileges.can_delete_messages
+        if isinstance(member, ChatMemberAdministrator):
+            return member.can_delete_messages
         return False
     except Exception:
         return False
@@ -69,27 +55,28 @@ def get_user_link(user_id: int, first_name: str = None) -> str:
     name = first_name or "Kullanici"
     return f"[{name}](tg://user?id={user_id})"
 
-async def get_target_user(client: Client, message: Message) -> tuple:
+async def get_target_user(bot: Bot, message: Message) -> tuple:
     """Get target user from reply or mention"""
     user_id = None
     first_name = None
 
     # Check if replying to a message
-    if message.reply_to_message:
+    if message.reply_to_message and message.reply_to_message.from_user:
         user = message.reply_to_message.from_user
-        if user:
-            return user.id, user.first_name
+        return user.id, user.first_name
 
     # Check if user ID or username provided in command
-    args = message.text.split()[1:] if message.text else []
+    text = message.text or message.caption or ""
+    args = text.split()[1:] if text else []
     if args:
         target = args[0]
         try:
             if target.startswith("@"):
-                user = await client.get_users(target)
-                return user.id, user.first_name
+                # Can't get user by username in aiogram without cache
+                # Return the username for display
+                return None, target
             elif target.isdigit():
-                user = await client.get_users(int(target))
+                user = await bot.get_chat(int(target))
                 return user.id, user.first_name
         except Exception:
             pass
@@ -129,17 +116,7 @@ def extract_time(time_str: str) -> int | None:
 # ==================== ROSE-STYLE FORMATTING ====================
 
 def apply_fillings(text: str, user, chat=None) -> str:
-    """Apply Rose-style fillings to text
-
-    Supported fillings:
-    {first} - User's first name
-    {last} - User's last name
-    {fullname} - User's full name
-    {username} - User's username
-    {mention} - Mentions the user
-    {id} - User's ID
-    {chatname} - Chat name
-    """
+    """Apply Rose-style fillings to text"""
     if not text:
         return text
 
@@ -180,78 +157,35 @@ def parse_random_content(text: str) -> str:
 
 
 def parse_buttons(text: str) -> tuple[str, list]:
-    """Parse Rose-style buttons from text
-
-    Syntax: [button text](buttonurl://url)
-    Same line: [button](buttonurl://url:same)
-
-    Returns: (cleaned_text, buttons_list)
-    """
+    """Parse Rose-style buttons from text"""
     if not text:
         return text, []
 
     buttons = []
     current_row = []
 
-    # Pattern to match buttons: [text](buttonurl://url) or [text](buttonurl://url:same)
+    # Pattern to match buttons
     button_pattern = r'\[([^\]]+)\]\(buttonurl://([^)]+)\)'
 
-    # Find all buttons
     matches = re.findall(button_pattern, text)
 
     for btn_text, url_data in matches:
-        # Check if it should be on the same line
         same_line = url_data.endswith(':same')
         url = url_data.rstrip(':same').strip()
 
         button = InlineKeyboardButton(text=btn_text.strip(), url=url)
 
         if same_line and current_row:
-            # Add to current row
             current_row.append(button)
         else:
-            # Start new row
             if current_row:
                 buttons.append(current_row)
             current_row = [button]
 
-    # Add last row
     if current_row:
         buttons.append(current_row)
 
-    # Remove button markup from text
     cleaned_text = re.sub(button_pattern, '', text).strip()
-
-    return cleaned_text, buttons
-
-
-def parse_note_buttons(text: str) -> tuple[str, list]:
-    """Parse buttons that link to notes
-
-    Syntax: [button text](buttonurl://#notename)
-    """
-    if not text:
-        return text, []
-
-    # Pattern for note buttons
-    note_pattern = r'\[([^\]]+)\]\(buttonurl://#([^):]+)(?::same)?\)'
-
-    buttons = []
-    current_row = []
-
-    matches = re.findall(note_pattern, text)
-
-    for btn_text, note_name in matches:
-        # Note buttons will be handled as callback data
-        button = InlineKeyboardButton(
-            text=btn_text.strip(),
-            callback_data=f"note_{note_name}"
-        )
-        current_row.append(button)
-        buttons.append(current_row)
-        current_row = []
-
-    cleaned_text = re.sub(note_pattern, '', text).strip()
 
     return cleaned_text, buttons
 
@@ -260,7 +194,7 @@ def build_keyboard(buttons: list) -> InlineKeyboardMarkup | None:
     """Build InlineKeyboardMarkup from button list"""
     if not buttons:
         return None
-    return InlineKeyboardMarkup(buttons)
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
 def extract_buttons_from_text(text: str) -> tuple[str, InlineKeyboardMarkup | None]:
@@ -273,28 +207,8 @@ def extract_buttons_from_text(text: str) -> tuple[str, InlineKeyboardMarkup | No
     return text, None
 
 
-def apply_markdown_formatting(text: str) -> str:
-    """Apply Telegram-compatible markdown formatting
-
-    Supports:
-    *bold*
-    _italic_
-    __underline__
-    ~strikethrough~
-    `code`
-    ||spoiler||
-    """
-    # Text is already in markdown format for Pyrogram
-    return text
-
-
 def process_filter_response(text: str, user, chat=None) -> tuple[str, InlineKeyboardMarkup | None]:
-    """Process a filter response with all Rose-style features
-
-    1. Random content selection (%%%)
-    2. Fillings replacement
-    3. Button extraction
-    """
+    """Process a filter response with all Rose-style features"""
     if not text:
         return "", None
 
@@ -312,45 +226,28 @@ def process_filter_response(text: str, user, chat=None) -> tuple[str, InlineKeyb
 
 # ==================== COMMAND DETECTION ====================
 
-# List of all bot commands
 BOT_COMMANDS = [
-    # Basic commands
-    'start', 'help', 'id', 'info',
-    # Filter commands
+    'start', 'help', 'id', 'info', 'connect',
     'filter', 'filters', 'stop', 'stopall',
-    # Tagger commands
     'kaydet', 'uyeler', 'üyeler', 'temizle', 'naber', 'etiket', 'durdur', 'herkes',
-    # Ban commands
     'ban', 'tban', 'dban', 'sban', 'unban',
-    # Kick commands
     'kick', 'dkick', 'skick',
-    # Mute commands
     'mute', 'tmute', 'dmute', 'smute', 'unmute',
-    # Admin commands
     'lock', 'unlock', 'del', 'purge', 'pin', 'unpin', 'admins',
-    # Settings commands
     'setadminonly', 'adminonly'
 ]
 
 def is_bot_command(text: str) -> bool:
     """Check if message is a bot command"""
-    if not text:
+    if not text or not text.startswith('/'):
         return False
 
-    text = text.strip()
-
-    # Check if starts with /
-    if not text.startswith('/'):
-        return False
-
-    # Extract command
     parts = text.split()
     if not parts:
         return False
 
-    cmd = parts[0][1:].lower()  # Remove / prefix
+    cmd = parts[0][1:].lower()
 
-    # Remove @botname suffix if present
     if '@' in cmd:
         cmd = cmd.split('@')[0]
 
