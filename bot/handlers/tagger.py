@@ -87,7 +87,8 @@ async def save_all_members(message: Message, bot: Bot):
         return
 
     if members_list:
-        await save_members_bulk(chat_id, members_list)
+        # Don't replace all - merge with existing members
+        await save_members_bulk(chat_id, members_list, replace_all=False)
         await status_msg.edit_text(
             f"**{len(members_list)}** admin kaydedildi!\n\n"
             "**Not:** Bot API ile sadece adminler alinabilir.\n"
@@ -253,8 +254,7 @@ async def start_tagging(message: Message, bot: Bot):
             await asyncio.sleep(3)  # Anti-flood
         except TelegramRetryAfter as e:
             await asyncio.sleep(e.retry_after)
-        except Exception as e:
-            print(f"Tag error: {e}")
+        except Exception:
             continue
 
     await stop_tag_session(chat_id)
@@ -338,27 +338,36 @@ async def tag_everyone(message: Message, bot: Bot):
             continue
 
 
-# Auto-save member when they send a message
-@router.message(F.chat.type.in_(["group", "supergroup"]))
-async def auto_save_member(message: Message, bot: Bot):
-    """Automatically save member info when they send a message"""
-    if not message.from_user or message.from_user.is_bot:
-        return
+# Middleware to auto-save member when they send a message
+# This runs for every message and doesn't block other handlers
+from typing import Callable, Awaitable, Any
+from aiogram.types import TelegramObject
 
-    chat_id = message.chat.id
+@router.message.outer_middleware()
+async def auto_save_member_middleware(
+    handler: Callable[[TelegramObject, dict[str, Any]], Awaitable[Any]],
+    event: Message,
+    data: dict[str, Any]
+) -> Any:
+    """Middleware to automatically save member info when they send a message"""
+    # Only process group messages
+    if event.chat.type in ["group", "supergroup"]:
+        if event.from_user and not event.from_user.is_bot:
+            chat_id = event.chat.id
 
-    if not is_allowed_group(chat_id):
-        return
+            if is_allowed_group(chat_id):
+                # Import here to avoid circular import
+                from bot.database.members import save_member
 
-    # Import here to avoid circular import
-    from bot.database.members import save_member
+                try:
+                    await save_member(
+                        chat_id=chat_id,
+                        user_id=event.from_user.id,
+                        username=event.from_user.username,
+                        first_name=event.from_user.first_name
+                    )
+                except Exception:
+                    pass  # Silently ignore errors
 
-    try:
-        await save_member(
-            chat_id=chat_id,
-            user_id=message.from_user.id,
-            username=message.from_user.username,
-            first_name=message.from_user.first_name
-        )
-    except Exception:
-        pass  # Silently ignore errors
+    # Always continue to the next handler
+    return await handler(event, data)
