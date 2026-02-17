@@ -6,8 +6,8 @@ load_dotenv()
 # Bot Token - THE ONLY REQUIRED CONFIGURATION
 BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 
-# Database - Using SQLite (no external database required)
-DATABASE_PATH = os.getenv("DATABASE_PATH", "bot_data.db")
+# Database - Using PostgreSQL (Neon.tech)
+DATABASE_URL = os.getenv("DATABASE_URL", "")
 
 # Log Channel (optional)
 _log_channel = os.getenv("LOG_CHANNEL_ID", "").strip()
