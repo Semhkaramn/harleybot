@@ -176,21 +176,31 @@ def parse_random_content(text: str) -> str:
 
 
 def parse_buttons(text: str) -> tuple[str, list]:
-    """Parse Rose-style buttons from text"""
+    """Parse buttons from text - supports simple format [text](url) and [text](url:same)"""
     if not text:
         return text, []
 
     buttons = []
     current_row = []
 
-    # Pattern to match buttons
-    button_pattern = r'\[([^\]]+)\]\(buttonurl://([^)]+)\)'
+    # Pattern to match buttons: [Button Text](url) or [Button Text](url:same)
+    # Supports both old buttonurl:// format and new simple format
+    # Match: [text](buttonurl://url) or [text](buttonurl:url) or [text](http://url) or [text](https://url) or [text](tg://url)
+    button_pattern = r'\[([^\]]+)\]\(((?:buttonurl:/?/?)?(?:https?://|tg://)[^)]+)\)'
 
     matches = re.findall(button_pattern, text)
 
     for btn_text, url_data in matches:
+        # Check if :same is at the end
         same_line = url_data.endswith(':same')
         url = url_data.rstrip(':same').strip()
+
+        # Remove buttonurl:// or buttonurl: prefix if present
+        url = re.sub(r'^buttonurl:/?/?', '', url)
+
+        # Ensure URL has proper protocol
+        if not url.startswith(('http://', 'https://', 'tg://')):
+            url = 'https://' + url
 
         button = InlineKeyboardButton(text=btn_text.strip(), url=url)
 
@@ -205,6 +215,9 @@ def parse_buttons(text: str) -> tuple[str, list]:
         buttons.append(current_row)
 
     cleaned_text = re.sub(button_pattern, '', text).strip()
+
+    # Clean up extra whitespace and newlines
+    cleaned_text = re.sub(r'\n\s*\n', '\n', cleaned_text)
 
     return cleaned_text, buttons
 
