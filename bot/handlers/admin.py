@@ -57,20 +57,20 @@ async def ban_user(message: Message, bot: Bot):
     if not target_id:
         await message.reply(
             "**Ban Kullanimi:**\n"
-            "- Bir mesaji yanitlayarak: `/ban`\n"
+            "- Bir mesajı yanıtlayarak: `/ban`\n"
             "- Kullanici ID ile: `/ban <user_id>`"
         )
         return
 
     # Check if target is admin
     if await is_admin(bot, chat_id, target_id):
-        await message.reply("Adminleri banlayamazsiniz!")
+        await message.reply("Adminleri banlayamazsınız!")
         return
 
     try:
         await bot.ban_chat_member(chat_id, target_id)
         user_link = get_user_link(target_id, target_name)
-        await message.reply(f"{user_link} **banlandi!**")
+        await message.reply(f"{user_link} **banlandı!**")
     except TelegramBadRequest as e:
         await message.reply(f"Hata: {e.message}")
     except Exception as e:
@@ -97,7 +97,7 @@ async def tban_user(message: Message, bot: Bot):
         return
 
     if await is_admin(bot, chat_id, target_id):
-        await message.reply("Adminleri banlayamazsiniz!")
+        await message.reply("Adminleri banlayamazsınız!")
         return
 
     # Parse time
@@ -116,7 +116,7 @@ async def tban_user(message: Message, bot: Bot):
 
     duration = extract_time(time_str)
     if not duration:
-        await message.reply("Gecersiz sure formati!")
+        await message.reply("Geçersiz sure formati!")
         return
 
     until_date = datetime.now() + timedelta(seconds=duration)
@@ -124,7 +124,7 @@ async def tban_user(message: Message, bot: Bot):
     try:
         await bot.ban_chat_member(chat_id, target_id, until_date=until_date)
         user_link = get_user_link(target_id, target_name)
-        await message.reply(f"{user_link} **{time_str} sureyle banlandi!**")
+        await message.reply(f"{user_link} **{time_str} sureyle banlandı!**")
     except Exception as e:
         await message.reply(f"Hata: {str(e)}")
 
@@ -146,7 +146,7 @@ async def unban_user(message: Message, bot: Bot):
     try:
         await bot.unban_chat_member(chat_id, target_id, only_if_banned=True)
         user_link = get_user_link(target_id, target_name)
-        await message.reply(f"{user_link} **bani kaldirildi!**")
+        await message.reply(f"{user_link} **banı kaldırıldı!**")
     except Exception as e:
         await message.reply(f"Hata: {str(e)}")
 
@@ -168,7 +168,7 @@ async def kick_user(message: Message, bot: Bot):
             "**Kick Kullanimi:**\n"
             "- `/kick @username`\n"
             "- `/kick user_id`\n"
-            "- Mesaji yanitlayarak: `/kick`"
+            "- Mesaji yanıtlayarak: `/kick`"
         )
         return
 
@@ -202,7 +202,7 @@ async def mute_user(message: Message, bot: Bot):
         await message.reply(
             "**Mute Kullanimi:**\n"
             "- `/mute @username`\n"
-            "- Mesaji yanitlayarak: `/mute`"
+            "- Mesaji yanıtlayarak: `/mute`"
         )
         return
 
@@ -259,7 +259,7 @@ async def tmute_user(message: Message, bot: Bot):
 
     duration = extract_time(time_str)
     if not duration:
-        await message.reply("Gecersiz sure formati!")
+        await message.reply("Geçersiz sure formati!")
         return
 
     until_date = datetime.now() + timedelta(seconds=duration)
@@ -309,7 +309,7 @@ async def unmute_user(message: Message, bot: Bot):
             )
         )
         user_link = get_user_link(target_id, target_name)
-        await message.reply(f"{user_link} **susturmasi kaldirildi!**")
+        await message.reply(f"{user_link} **susturması kaldırıldı!**")
     except Exception as e:
         await message.reply(f"Hata: {str(e)}")
 
@@ -358,7 +358,7 @@ async def lock_chat(message: Message, bot: Bot):
             )
         )
         await set_chat_locked(chat_id, True)
-        await message.reply("**Grup kilitlendi!** Sadece adminler mesaj yazabilir.\n_(Uye ekleme izni acik kaldi)_")
+        await message.reply("**Grup kilitlendi!**")
     except TelegramBadRequest as e:
         await message.reply(f"Hata: {e.message}")
 
@@ -400,7 +400,7 @@ async def unlock_chat(message: Message, bot: Bot):
             )
             # Clear saved permissions
             await clear_previous_permissions(chat_id)
-            await message.reply("**Grup kilidi acildi!** Onceki izinler geri yuklendi.")
+            await message.reply("**Grup kilidi açıldı!**")
         else:
             # No saved permissions, restore all to default
             await bot.set_chat_permissions(
@@ -419,7 +419,7 @@ async def unlock_chat(message: Message, bot: Bot):
                     can_invite_users=True  # Always keep invite permission open
                 )
             )
-            await message.reply("**Grup kilidi acildi!** Tum izinler varsayilana ayarlandi.")
+            await message.reply("**Grup kilidi açıldı!**")
 
         await set_chat_locked(chat_id, False)
     except Exception as e:
@@ -443,7 +443,7 @@ async def purge_messages(message: Message, bot: Bot):
         return
 
     if not message.reply_to_message:
-        await message.reply("Silinecek mesajlarin baslangicini yanitlayin!")
+        await message.reply("Silinecek mesajlarin başlangıcını yanıtlayın!")
         return
 
     start_id = message.reply_to_message.message_id
@@ -492,7 +492,7 @@ async def delete_message(message: Message, bot: Bot):
         return
 
     if not message.reply_to_message:
-        await message.reply("Silinecek mesaji yanitlayin!")
+        await message.reply("Silinecek mesajı yanıtlayın!")
         return
 
     try:
@@ -519,7 +519,7 @@ async def pin_message(message: Message, bot: Bot):
         return
 
     if not message.reply_to_message:
-        await message.reply("Sabitlenecek mesaji yanitlayin!")
+        await message.reply("Sabitlenecek mesajı yanıtlayın!")
         return
 
     try:
@@ -548,7 +548,7 @@ async def unpin_message(message: Message, bot: Bot):
             await bot.unpin_chat_message(chat_id, message.reply_to_message.message_id)
         else:
             await bot.unpin_all_chat_messages(chat_id)
-        await message.reply("Sabitleme kaldirildi!")
+        await message.reply("Sabitleme kaldırıldı!")
     except Exception as e:
         await message.reply(f"Hata: {str(e)}")
 
