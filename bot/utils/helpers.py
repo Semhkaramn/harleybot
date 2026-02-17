@@ -5,10 +5,18 @@ from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, C
 
 
 def escape_markdown_v2(text: str) -> str:
-    """Escape special characters for MarkdownV2 parse mode"""
+    """Escape special characters for MarkdownV2 parse mode
+
+    Note: Backslash must be escaped FIRST to avoid double-escaping other characters
+    """
     if not text:
         return text
-    special_chars = ['\\', '_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!']
+
+    # Backslash MUST be first to avoid double-escaping
+    text = text.replace('\\', '\\\\')
+
+    # Then escape other special characters
+    special_chars = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!']
     for char in special_chars:
         text = text.replace(char, f'\\{char}')
     return text
@@ -78,7 +86,9 @@ def get_user_mention(user_id: int, username: str = None, first_name: str = None)
         name = "Üye"
 
     # Escape MarkdownV2 special characters in the name
-    for char in ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!', '\\']:
+    # Backslash MUST be first to avoid double-escaping
+    name = name.replace('\\', '\\\\')
+    for char in ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!']:
         name = name.replace(char, f'\\{char}')
 
     # Return MarkdownV2 format mention - HER ZAMAN bu format kullanılır
@@ -330,7 +340,7 @@ def process_filter_response(text: str, user, chat=None) -> tuple[str, InlineKeyb
 # ==================== COMMAND DETECTION ====================
 
 BOT_COMMANDS = [
-    'start', 'help', 'id', 'info', 'connect',
+    'start', 'help', 'id', 'info', 'connect', 'disconnect', 'status',
     'filter', 'filters', 'stop', 'stopall',
     'kaydet', 'uyeler', 'üyeler', 'temizle', 'naber', 'etiket', 'durdur', 'herkes',
     'ban', 'tban', 'dban', 'sban', 'unban',
