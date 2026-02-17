@@ -2,17 +2,46 @@ from aiogram import Router, Bot, F
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.filters import Command
 
-from bot.config import BOT_NAME, BOT_VERSION
+from bot.config import BOT_NAME, BOT_VERSION, ALLOWED_GROUP_ID
 from bot.utils.helpers import is_admin
 
 router = Router()
+
+
+def is_allowed_group(chat_id: int) -> bool:
+    """Check if bot is allowed to operate in this group"""
+    if ALLOWED_GROUP_ID is None:
+        return True  # No restriction if not configured
+    return chat_id == ALLOWED_GROUP_ID
+
 
 # /start command
 @router.message(Command("start"))
 async def start_command(message: Message, bot: Bot):
     user = message.from_user
+    text_content = message.text or ""
 
     if message.chat.type == "private":
+        # Handle /start with connect parameter
+        if "connect_" in text_content:
+            try:
+                chat_id = int(text_content.split("connect_")[1])
+                chat = await bot.get_chat(chat_id)
+
+                # Verify user is still admin
+                if await is_admin(bot, chat_id, message.from_user.id):
+                    await message.reply(
+                        f"**{chat.title}** grubuna baglandiniz!\n\n"
+                        "Buradan grup ayarlarini yonetebilirsiniz.\n"
+                        "Komutlar icin /help yazin."
+                    )
+                else:
+                    await message.reply("Bu grupta admin degilsiniz!")
+            except:
+                await message.reply("Gecersiz grup!")
+            return
+
+        # Normal start message
         text = (
             f"**Merhaba {user.first_name}!**\n\n"
             f"Ben **{BOT_NAME}** - Grup yonetim botuyum.\n\n"
@@ -38,7 +67,11 @@ async def start_command(message: Message, bot: Bot):
 
         await message.reply(text, reply_markup=buttons)
     else:
+        # Check if allowed group
+        if not is_allowed_group(message.chat.id):
+            return
         await message.reply(f"**{BOT_NAME}** aktif!\nKomutlar icin: /help")
+
 
 # /help command
 @router.message(Command("help"))
@@ -48,6 +81,10 @@ async def help_command(message: Message, bot: Bot):
 
     # Check if admin in groups
     if message.chat.type != "private":
+        # Check if allowed group
+        if not is_allowed_group(chat_id):
+            return
+
         if not await is_admin(bot, chat_id, user_id):
             try:
                 await message.delete()
@@ -105,6 +142,7 @@ async def help_command(message: Message, bot: Bot):
 """
     await message.reply(text)
 
+
 # /connect command - Sends PM button for admin management
 @router.message(Command("connect"))
 async def connect_command(message: Message, bot: Bot):
@@ -114,6 +152,10 @@ async def connect_command(message: Message, bot: Bot):
     # Only works in groups
     if message.chat.type == "private":
         await message.reply("Bu komut sadece gruplarda calisir!")
+        return
+
+    # Check if allowed group
+    if not is_allowed_group(chat_id):
         return
 
     # Check if admin
@@ -142,29 +184,6 @@ async def connect_command(message: Message, bot: Bot):
         reply_markup=buttons
     )
 
-# Handle /start with connect parameter
-@router.message(Command("start"))
-async def start_with_connect(message: Message, bot: Bot):
-    if message.chat.type != "private":
-        return
-
-    text = message.text or ""
-    if "connect_" in text:
-        try:
-            chat_id = int(text.split("connect_")[1])
-            chat = await bot.get_chat(chat_id)
-
-            # Verify user is still admin
-            if await is_admin(bot, chat_id, message.from_user.id):
-                await message.reply(
-                    f"**{chat.title}** grubuna baglandiniz!\n\n"
-                    "Buradan grup ayarlarini yonetebilirsiniz.\n"
-                    "Komutlar icin /help yazin."
-                )
-            else:
-                await message.reply("Bu grupta admin degilsiniz!")
-        except:
-            await message.reply("Gecersiz grup!")
 
 # /id command
 @router.message(Command("id"))
@@ -174,6 +193,10 @@ async def id_command(message: Message, bot: Bot):
 
     # Check if admin in groups
     if message.chat.type != "private":
+        # Check if allowed group
+        if not is_allowed_group(chat_id):
+            return
+
         if not await is_admin(bot, chat_id, user_id):
             try:
                 await message.delete()
@@ -207,6 +230,7 @@ async def id_command(message: Message, bot: Bot):
 
     await message.reply(text)
 
+
 # /info command
 @router.message(Command("info"))
 async def info_command(message: Message, bot: Bot):
@@ -215,6 +239,10 @@ async def info_command(message: Message, bot: Bot):
 
     # Check if admin in groups
     if message.chat.type != "private":
+        # Check if allowed group
+        if not is_allowed_group(chat_id):
+            return
+
         if not await is_admin(bot, chat_id, user_id):
             try:
                 await message.delete()
@@ -239,6 +267,7 @@ async def info_command(message: Message, bot: Bot):
 """
 
     await message.reply(text)
+
 
 # Callback handler for help button
 @router.callback_query(F.data == "help_main")
