@@ -11,8 +11,16 @@ from bot.utils.helpers import (
     is_admin, process_filter_response, parse_buttons,
     build_keyboard, apply_fillings, parse_random_content
 )
+from bot.config import ALLOWED_GROUP_ID
 
 router = Router()
+
+
+def is_allowed_group(chat_id: int) -> bool:
+    """Check if bot is allowed to operate in this group"""
+    if ALLOWED_GROUP_ID is None:
+        return True  # No restriction if not configured
+    return chat_id == ALLOWED_GROUP_ID
 
 
 def parse_filter_keywords(text: str) -> list:
@@ -94,6 +102,10 @@ async def filter_command(message: Message, bot: Bot):
 
     chat_id = message.chat.id
     user_id = message.from_user.id
+
+    # Check if allowed group
+    if not is_allowed_group(chat_id):
+        return
 
     if not await is_admin(bot, chat_id, user_id):
         try:
@@ -185,6 +197,10 @@ async def list_filters(message: Message, bot: Bot):
     chat_id = message.chat.id
     user_id = message.from_user.id
 
+    # Check if allowed group
+    if not is_allowed_group(chat_id):
+        return
+
     if not await is_admin(bot, chat_id, user_id):
         try:
             await message.delete()
@@ -228,6 +244,10 @@ async def stop_filter(message: Message, bot: Bot):
     chat_id = message.chat.id
     user_id = message.from_user.id
 
+    # Check if allowed group
+    if not is_allowed_group(chat_id):
+        return
+
     if not await is_admin(bot, chat_id, user_id):
         try:
             await message.delete()
@@ -261,6 +281,10 @@ async def stop_all_filters(message: Message, bot: Bot):
     chat_id = message.chat.id
     user_id = message.from_user.id
 
+    # Check if allowed group
+    if not is_allowed_group(chat_id):
+        return
+
     if not await is_admin(bot, chat_id, user_id):
         try:
             await message.delete()
@@ -283,6 +307,11 @@ async def check_filter_message(message: Message, bot: Bot):
         return
 
     chat_id = message.chat.id
+
+    # Check if allowed group
+    if not is_allowed_group(chat_id):
+        return
+
     text = message.text
     user = message.from_user
     chat = message.chat
