@@ -26,6 +26,10 @@ def is_allowed_group(chat_id: int) -> bool:
 # Helper function to check admin and delete if not
 async def check_admin_silent(bot: Bot, message: Message) -> bool:
     """Check if user is admin, silently delete if not"""
+    # Null check for from_user
+    if not message.from_user:
+        return False
+
     chat_id = message.chat.id
     user_id = message.from_user.id
 
