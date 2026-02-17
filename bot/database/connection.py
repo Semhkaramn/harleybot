@@ -83,6 +83,7 @@ async def create_tables():
             CREATE TABLE IF NOT EXISTS chat_settings (
                 chat_id BIGINT PRIMARY KEY,
                 chat_locked INTEGER DEFAULT 0,
+                previous_permissions TEXT,
                 welcome_enabled INTEGER DEFAULT 1,
                 welcome_message TEXT,
                 admin_only_commands INTEGER DEFAULT 1,
@@ -90,6 +91,14 @@ async def create_tables():
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+
+        # Add previous_permissions column if not exists (for existing databases)
+        try:
+            await conn.execute("""
+                ALTER TABLE chat_settings ADD COLUMN IF NOT EXISTS previous_permissions TEXT
+            """)
+        except:
+            pass
 
         # Active tags table (for ongoing tag sessions)
         await conn.execute("""
