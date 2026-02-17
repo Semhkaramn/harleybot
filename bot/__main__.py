@@ -21,23 +21,14 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-print(f"""
-╔══════════════════════════════════════╗
-║        {BOT_NAME}                     ║
-║     Grup Yonetim Botu                ║
-║     Sadece BOT_TOKEN ile calisir!    ║
-╚══════════════════════════════════════╝
-""")
+
 
 async def main():
     """Main function to start the bot"""
 
     if not BOT_TOKEN:
-        print("❌ HATA: BOT_TOKEN bulunamadi!")
-        print("📝 .env dosyasina BOT_TOKEN=your_token_here ekleyin")
+        logger.error("BOT_TOKEN bulunamadi! .env dosyasini kontrol edin.")
         return
-
-    print("🚀 Bot baslatiliyor...")
 
     # Initialize database
     await init_db()
@@ -49,25 +40,26 @@ async def main():
     )
     dp = Dispatcher()
 
-    # Register routers (order matters - guard first)
-    dp.include_router(guard_router)
+    # Register routers (order matters!)
+    # 1. Tagger router first - has middleware for auto-saving members
+    # 2. Basic commands (start, help, etc.)
+    # 3. Admin commands (ban, mute, etc.)
+    # 4. Filter commands and filter checker
+    # 5. Guard router last - catches remaining commands for admin-only check
+    dp.include_router(tagger_router)
     dp.include_router(basic_router)
     dp.include_router(admin_router)
     dp.include_router(filters_router)
-    dp.include_router(tagger_router)
+    dp.include_router(guard_router)
 
     # Get bot info
     me = await bot.get_me()
-    print(f"✅ Bot basladi: @{me.username}")
-    print(f"📊 Bot ID: {me.id}")
-    print(f"ℹ️  Sadece BOT_TOKEN ile calisiyor - API_ID/API_HASH gerekmiyor!")
+    logger.info(f"Bot basladi: @{me.username} (ID: {me.id})")
 
     try:
-        # Start polling
         await dp.start_polling(bot)
     finally:
-        # Cleanup on shutdown
-        print("🛑 Bot kapatiliyor...")
+        logger.info("Bot kapatiliyor...")
         await close_db()
         await bot.session.close()
 
