@@ -151,6 +151,8 @@ def extract_media_info(message: Message) -> tuple:
 
 @router.message(Command("filter"))
 async def filter_command(message: Message, bot: Bot):
+    if not message.from_user:
+        return
     user_id = message.from_user.id
 
     # Get target chat (supports private chat connections)
@@ -268,6 +270,8 @@ async def filter_command(message: Message, bot: Bot):
 
 @router.message(Command("filters"))
 async def list_filters(message: Message, bot: Bot):
+    if not message.from_user:
+        return
     user_id = message.from_user.id
 
     # Get target chat (supports private chat connections)
@@ -321,6 +325,8 @@ async def list_filters(message: Message, bot: Bot):
 
 @router.message(Command("stop"))
 async def stop_filter(message: Message, bot: Bot):
+    if not message.from_user:
+        return
     user_id = message.from_user.id
 
     # Get target chat (supports private chat connections)
@@ -364,6 +370,8 @@ async def stop_filter(message: Message, bot: Bot):
 
 @router.message(Command("stopall"))
 async def stop_all_filters(message: Message, bot: Bot):
+    if not message.from_user:
+        return
     user_id = message.from_user.id
 
     # Get target chat (supports private chat connections)
