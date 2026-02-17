@@ -10,7 +10,6 @@ async def init_db():
     db = await aiosqlite.connect(DATABASE_PATH)
     db.row_factory = aiosqlite.Row
     await create_tables()
-    print("✅ Database connected!")
 
 
 async def get_db():
@@ -112,7 +111,6 @@ async def create_tables():
     """)
 
     await database.commit()
-    print("✅ Tables created!")
 
 
 async def close_db():
