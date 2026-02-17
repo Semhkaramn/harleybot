@@ -175,14 +175,14 @@ async def naber_tag(message: Message, bot: Bot):
         try:
             mention = get_user_mention(member['user_id'], member.get('username'), member.get('first_name'))
             question = random.choice(RANDOM_QUESTIONS)
-            await bot.send_message(chat_id, f"{mention} {question}")
+            await bot.send_message(chat_id, f"{mention} {question}", parse_mode="Markdown")
             await asyncio.sleep(1)  # Anti-flood
         except TelegramRetryAfter as e:
             await asyncio.sleep(e.retry_after)
         except Exception:
             continue
 
-    await bot.send_message(chat_id, "Etiketleme tamamlandi!")
+    await bot.send_message(chat_id, "Etiketleme tamamlandı!")
 
 
 # /etiket <mesaj> - Start tagging 5 people at a time with custom message
@@ -227,7 +227,7 @@ async def start_tagging(message: Message, bot: Bot):
     # Start tag session
     await start_tag_session(chat_id, custom_message, user_id)
 
-    await message.reply(f"Etiketleme basladi! **{len(members)}** kisi etiketlenecek (5'er 5'er).\nDurdurmak icin: `/durdur`")
+    await message.reply(f"Etiketleme başladı! **{len(members)}** kişi etiketlenecek.\nDurdurmak için: `/durdur`")
 
     # Tag 5 people at a time
     total = len(members)
@@ -248,7 +248,7 @@ async def start_tagging(message: Message, bot: Bot):
 
         try:
             tag_text = f"{custom_message}\n\n" + " ".join(mentions)
-            await bot.send_message(chat_id, tag_text)
+            await bot.send_message(chat_id, tag_text, parse_mode="Markdown")
             index += 5
             await update_tag_index(chat_id, index)
             await asyncio.sleep(3)  # Anti-flood
@@ -258,7 +258,7 @@ async def start_tagging(message: Message, bot: Bot):
             continue
 
     await stop_tag_session(chat_id)
-    await bot.send_message(chat_id, f"Etiketleme tamamlandi! **{total}** kisi etiketlendi.")
+    await bot.send_message(chat_id, f"Etiketleme tamamlandı! **{total}** kişi etiketlendi.")
 
 
 # /durdur - Stop ongoing tagging
@@ -330,7 +330,7 @@ async def tag_everyone(message: Message, bot: Bot):
                 tag_text = f"**{custom_message}**\n\n" + " ".join(mentions)
             else:
                 tag_text = " ".join(mentions)
-            await bot.send_message(chat_id, tag_text)
+            await bot.send_message(chat_id, tag_text, parse_mode="Markdown")
             await asyncio.sleep(2)
         except TelegramRetryAfter as e:
             await asyncio.sleep(e.retry_after)
