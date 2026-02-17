@@ -104,6 +104,16 @@ async def create_tables():
             )
         """)
 
+        # User connections table (for private chat management)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS user_connections (
+                user_id BIGINT PRIMARY KEY,
+                chat_id BIGINT NOT NULL,
+                chat_title TEXT,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
 
 async def close_db():
     """Close database connection pool"""
