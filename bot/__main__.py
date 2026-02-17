@@ -41,13 +41,13 @@ async def main():
     dp = Dispatcher()
 
     # Register routers (order matters!)
-    # 1. Tagger router first - has middleware for auto-saving members
-    # 2. Basic commands (start, help, etc.)
+    # 1. Basic router first - has middleware for deleting system messages
+    # 2. Tagger router - has middleware for auto-saving members
     # 3. Admin commands (ban, mute, etc.)
     # 4. Filter commands and filter checker
     # 5. Guard router last - catches remaining commands for admin-only check
-    dp.include_router(tagger_router)
     dp.include_router(basic_router)
+    dp.include_router(tagger_router)
     dp.include_router(admin_router)
     dp.include_router(filters_router)
     dp.include_router(guard_router)
