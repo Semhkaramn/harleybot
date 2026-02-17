@@ -3,18 +3,15 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Telegram API credentials
-API_ID = int(os.getenv("API_ID", "0"))
-API_HASH = os.getenv("API_HASH", "")
+# Bot Token - THE ONLY REQUIRED CONFIGURATION
 BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 
-# Database
-DATABASE_URL = os.getenv("DATABASE_URL", "")
+# Database - Using SQLite (no external database required)
+DATABASE_PATH = os.getenv("DATABASE_PATH", "bot_data.db")
 
-# Owner and admins
-OWNER_ID = int(os.getenv("OWNER_ID", "0"))
+# Log Channel (optional)
 LOG_CHANNEL_ID = int(os.getenv("LOG_CHANNEL_ID", "0")) if os.getenv("LOG_CHANNEL_ID") else None
 
 # Bot settings
-BOT_NAME = "RoseClone"
-BOT_VERSION = "1.0.0"
+BOT_NAME = "HarleyBot"
+BOT_VERSION = "2.0.0"
