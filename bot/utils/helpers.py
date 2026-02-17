@@ -3,6 +3,7 @@ import random
 from aiogram import Bot
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, ChatMemberAdministrator, ChatMemberOwner
 
+from bot.config import ALLOWED_GROUP_ID
 
 def escape_markdown_v2(text: str) -> str:
     """Escape special characters for MarkdownV2 parse mode
@@ -21,6 +22,22 @@ def escape_markdown_v2(text: str) -> str:
         text = text.replace(char, f'\\{char}')
     return text
 
+def escape_markdown(text: str) -> str:
+    """Escape special characters for Markdown parse mode (not V2)"""
+    if not text:
+        return text
+
+    # Markdown special characters that need escaping
+    special_chars = ['_', '*', '[', ']', '(', ')', '~', '`']
+    for char in special_chars:
+        text = text.replace(char, f'\\{char}')
+    return text
+
+def is_allowed_group(chat_id: int) -> bool:
+    """Check if bot is allowed to operate in this group"""
+    if ALLOWED_GROUP_ID is None:
+        return True  # No restriction if not configured
+    return chat_id == ALLOWED_GROUP_ID
 
 async def is_admin(bot: Bot, chat_id: int, user_id: int) -> bool:
     """Check if user is admin in the chat"""
@@ -175,7 +192,6 @@ def extract_time(time_str: str) -> int | None:
     except ValueError:
         return None
 
-
 # ==================== ROSE-STYLE FORMATTING ====================
 
 def apply_fillings(text: str, user, chat=None) -> str:
@@ -187,8 +203,11 @@ def apply_fillings(text: str, user, chat=None) -> str:
     last_name = user.last_name or ""
     full_name = f"{first_name} {last_name}".strip()
     username = f"@{user.username}" if user.username else first_name
-    mention = f"[{first_name}](tg://user?id={user.id})"
     chat_name = chat.title if chat else "Grup"
+
+    # Escape special characters for Markdown in the name used for mention
+    escaped_first_name = escape_markdown(first_name)
+    mention = f"[{escaped_first_name}](tg://user?id={user.id})"
 
     replacements = {
         '{first}': first_name,
@@ -205,7 +224,6 @@ def apply_fillings(text: str, user, chat=None) -> str:
 
     return text
 
-
 def parse_random_content(text: str) -> str:
     """Parse Rose-style random content using %%% separator"""
     if not text or '%%%' not in text:
@@ -217,7 +235,6 @@ def parse_random_content(text: str) -> str:
     if options:
         return random.choice(options)
     return text
-
 
 def parse_buttons_raw(text: str) -> tuple[str, list]:
     """Parse buttons from text and return serializable data for database storage"""
@@ -270,7 +287,6 @@ def parse_buttons_raw(text: str) -> tuple[str, list]:
 
     return cleaned_text, buttons
 
-
 def parse_buttons(text: str) -> tuple[str, list]:
     """Parse buttons from text and return InlineKeyboardButton objects"""
     cleaned_text, raw_buttons = parse_buttons_raw(text)
@@ -287,7 +303,6 @@ def parse_buttons(text: str) -> tuple[str, list]:
         buttons.append(button_row)
 
     return cleaned_text, buttons
-
 
 def build_keyboard(buttons: list) -> InlineKeyboardMarkup | None:
     """Build InlineKeyboardMarkup from button list (supports both raw dicts and InlineKeyboardButton objects)"""
@@ -309,7 +324,6 @@ def build_keyboard(buttons: list) -> InlineKeyboardMarkup | None:
 
     return InlineKeyboardMarkup(inline_keyboard=keyboard_rows)
 
-
 def extract_buttons_from_text(text: str) -> tuple[str, InlineKeyboardMarkup | None]:
     """Extract buttons and return cleaned text with keyboard"""
     cleaned_text, url_buttons = parse_buttons(text)
@@ -318,7 +332,6 @@ def extract_buttons_from_text(text: str) -> tuple[str, InlineKeyboardMarkup | No
         return cleaned_text, build_keyboard(url_buttons)
 
     return text, None
-
 
 def process_filter_response(text: str, user, chat=None) -> tuple[str, InlineKeyboardMarkup | None]:
     """Process a filter response with all Rose-style features"""
@@ -335,7 +348,6 @@ def process_filter_response(text: str, user, chat=None) -> tuple[str, InlineKeyb
     text, keyboard = extract_buttons_from_text(text)
 
     return text.strip(), keyboard
-
 
 # ==================== COMMAND DETECTION ====================
 
@@ -365,7 +377,6 @@ def is_bot_command(text: str) -> bool:
         cmd = cmd.split('@')[0]
 
     return cmd in BOT_COMMANDS
-
 
 def extract_command_name(text: str) -> str | None:
     """Extract command name from message"""
