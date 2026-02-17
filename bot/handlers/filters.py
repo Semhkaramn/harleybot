@@ -172,7 +172,8 @@ async def filter_command(message: Message, bot: Bot):
             pass
         return
 
-    text = message.text or ""
+    # Support both text and caption (for photo/media messages)
+    text = message.text or message.caption or ""
     keywords = parse_filter_keywords(text)
     response = get_response_text(text, keywords)
 
@@ -181,10 +182,21 @@ async def filter_command(message: Message, bot: Bot):
     caption = None
     buttons_list = None
 
+    # Check if the command message itself has media
+    msg_media_type, msg_file_id = extract_media_info(message)
+    if msg_media_type and msg_file_id:
+        media_type = msg_media_type
+        file_id = msg_file_id
+
     # Check if replying to a message
     if message.reply_to_message:
         reply = message.reply_to_message
-        media_type, file_id = extract_media_info(reply)
+        reply_media_type, reply_file_id = extract_media_info(reply)
+
+        # Use reply media if command message doesn't have media
+        if reply_media_type and reply_file_id and not file_id:
+            media_type = reply_media_type
+            file_id = reply_file_id
 
         if reply.caption:
             caption = reply.caption
