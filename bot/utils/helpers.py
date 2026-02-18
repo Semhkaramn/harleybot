@@ -359,7 +359,8 @@ BOT_COMMANDS = [
     'kick', 'dkick', 'skick',
     'mute', 'tmute', 'dmute', 'smute', 'unmute',
     'lock', 'unlock', 'del', 'purge', 'pin', 'unpin', 'admins',
-    'setadminonly', 'adminonly'
+    'setadminonly', 'adminonly',
+    'approve', 'disapprove'
 ]
 
 def is_bot_command(text: str) -> bool:
