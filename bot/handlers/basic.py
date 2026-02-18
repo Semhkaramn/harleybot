@@ -366,6 +366,14 @@ Sureli susturma.
 `/unmute`
 Susturmayi kaldirir.
 
+**GIF/Sticker Izni:**
+
+`/approve`
+Mesaji yanitlayarak kullaniciya GIF/Sticker izni verir.
+
+`/disapprove`
+Kullanicinin GIF/Sticker iznini kaldirir.
+
 **Not:** Bu komutlar sadece adminler tarafindan kullanilabilir.
 """
     await callback_query.message.edit_text(text, reply_markup=get_back_button())
