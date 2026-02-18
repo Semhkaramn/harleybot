@@ -10,6 +10,7 @@ from bot.database.settings import (
     set_chat_locked, save_previous_permissions,
     get_previous_permissions, clear_previous_permissions
 )
+
 from bot.utils.helpers import is_admin, can_restrict, get_target_user, get_user_link, extract_time, can_delete
 from bot.config import ALLOWED_GROUP_ID
 
@@ -614,3 +615,153 @@ async def list_admins(message: Message, bot: Bot):
         text = f"Hata: {str(e)}"
 
     await message.reply(text)
+
+# ==================== GIF APPROVAL COMMANDS ====================
+
+@router.message(Command("approve"))
+async def approve_gif_user(message: Message, bot: Bot):
+    """Approve a user to send GIFs (reply to their message)"""
+    if message.chat.type == "private":
+        return
+
+    if not message.from_user:
+        return
+
+    if not await check_admin_silent(bot, message):
+        return
+
+    chat_id = message.chat.id
+
+    # Must reply to a message
+    if not message.reply_to_message or not message.reply_to_message.from_user:
+        await message.reply(
+            "**GIF Onay Kullanimi:**\n"
+            "Bir kullanicinin mesajini yanitlayarak `/approve` yazin.\n\n"
+            "Bu kullaniciya GIF/Sticker atma izni verilecek."
+        )
+        return
+
+    target_user = message.reply_to_message.from_user
+    target_id = target_user.id
+    target_name = target_user.first_name or "Kullanici"
+
+    # Don't approve bots
+    if target_user.is_bot:
+        await message.reply("Botlara izin verilmez!")
+        return
+
+    # Check if target is admin (admins don't need approval)
+    if await is_admin(bot, chat_id, target_id):
+        await message.reply("Adminlerin zaten tum izinleri var!")
+        return
+
+    try:
+        # Get current user permissions first
+        member = await bot.get_chat_member(chat_id, target_id)
+
+        # Build permissions - keep existing, only change can_send_other_messages
+        current_perms = {}
+        if hasattr(member, 'can_send_messages'):
+            current_perms['can_send_messages'] = member.can_send_messages if member.can_send_messages is not None else True
+        if hasattr(member, 'can_send_audios'):
+            current_perms['can_send_audios'] = member.can_send_audios
+        if hasattr(member, 'can_send_documents'):
+            current_perms['can_send_documents'] = member.can_send_documents
+        if hasattr(member, 'can_send_photos'):
+            current_perms['can_send_photos'] = member.can_send_photos
+        if hasattr(member, 'can_send_videos'):
+            current_perms['can_send_videos'] = member.can_send_videos
+        if hasattr(member, 'can_send_video_notes'):
+            current_perms['can_send_video_notes'] = member.can_send_video_notes
+        if hasattr(member, 'can_send_voice_notes'):
+            current_perms['can_send_voice_notes'] = member.can_send_voice_notes
+        if hasattr(member, 'can_send_polls'):
+            current_perms['can_send_polls'] = member.can_send_polls
+        if hasattr(member, 'can_add_web_page_previews'):
+            current_perms['can_add_web_page_previews'] = member.can_add_web_page_previews
+
+        # Set can_send_other_messages to True (GIF/Sticker)
+        await bot.restrict_chat_member(
+            chat_id,
+            target_id,
+            permissions=ChatPermissions(
+                can_send_other_messages=True,
+                **current_perms
+            )
+        )
+        user_link = get_user_link(target_id, target_name)
+        await message.reply(f"{user_link} artik GIF/Sticker atabilir!")
+    except TelegramBadRequest as e:
+        await message.reply(f"Hata: {e.message}")
+    except Exception as e:
+        await message.reply(f"Hata: {str(e)}")
+
+
+@router.message(Command("disapprove"))
+async def disapprove_gif_user(message: Message, bot: Bot):
+    """Remove GIF/Sticker permission from a user"""
+    if message.chat.type == "private":
+        return
+
+    if not message.from_user:
+        return
+
+    if not await check_admin_silent(bot, message):
+        return
+
+    chat_id = message.chat.id
+    target_id, target_name = await get_target_user(bot, message)
+
+    if not target_id:
+        await message.reply(
+            "**GIF Izni Kaldirma Kullanimi:**\n"
+            "- Mesaji yanitlayarak: `/disapprove`\n"
+            "- ID ile: `/disapprove <user_id>`"
+        )
+        return
+
+    # Check if target is admin
+    if await is_admin(bot, chat_id, target_id):
+        await message.reply("Admin izinleri kaldirilamaz!")
+        return
+
+    try:
+        # Get current user permissions first
+        member = await bot.get_chat_member(chat_id, target_id)
+
+        # Build permissions - keep existing, only change can_send_other_messages
+        current_perms = {}
+        if hasattr(member, 'can_send_messages'):
+            current_perms['can_send_messages'] = member.can_send_messages if member.can_send_messages is not None else True
+        if hasattr(member, 'can_send_audios'):
+            current_perms['can_send_audios'] = member.can_send_audios
+        if hasattr(member, 'can_send_documents'):
+            current_perms['can_send_documents'] = member.can_send_documents
+        if hasattr(member, 'can_send_photos'):
+            current_perms['can_send_photos'] = member.can_send_photos
+        if hasattr(member, 'can_send_videos'):
+            current_perms['can_send_videos'] = member.can_send_videos
+        if hasattr(member, 'can_send_video_notes'):
+            current_perms['can_send_video_notes'] = member.can_send_video_notes
+        if hasattr(member, 'can_send_voice_notes'):
+            current_perms['can_send_voice_notes'] = member.can_send_voice_notes
+        if hasattr(member, 'can_send_polls'):
+            current_perms['can_send_polls'] = member.can_send_polls
+        if hasattr(member, 'can_add_web_page_previews'):
+            current_perms['can_add_web_page_previews'] = member.can_add_web_page_previews
+
+        # Set can_send_other_messages to False (no GIF/Sticker)
+        await bot.restrict_chat_member(
+            chat_id,
+            target_id,
+            permissions=ChatPermissions(
+                can_send_other_messages=False,
+                **current_perms
+            )
+        )
+        user_link = get_user_link(target_id, target_name)
+        await message.reply(f"{user_link} artik GIF/Sticker atamiyor!")
+    except TelegramBadRequest as e:
+        await message.reply(f"Hata: {e.message}")
+    except Exception as e:
+        await message.reply(f"Hata: {str(e)}")
